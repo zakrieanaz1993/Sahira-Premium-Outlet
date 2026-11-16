@@ -6794,7 +6794,7 @@ function setupAdminPortal() {
       const card = document.createElement('article');
       card.className = 'home-look-card';
       card.innerHTML = `
-        <div class="home-look-media${idx === 2 ? ' is-look-03' : ''}" data-orbit-inspect-look="${idx}" role="button" tabindex="0" aria-label="Inspect Look ${idx + 1}: ${esc(look.name)}">
+        <div class="home-look-media" data-orbit-inspect-look="${idx}" role="button" tabindex="0" aria-label="Inspect Look ${idx + 1}: ${esc(look.name)}">
           <span class="home-look-badge">LOOK ${String(idx + 1).padStart(2, '0')}</span>
           <span class="home-look-count">${paired.length} PIECES</span>
           <img src="${esc(look.src)}" srcset="${esc(look.srcset || look.src)}" sizes="(min-width: 1100px) 360px, 280px" alt="${esc(look.name)}" loading="lazy" decoding="async">
