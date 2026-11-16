@@ -2297,19 +2297,35 @@ const DEFAULT_REELS = [
   { id: 'reel-look-12', lookIndex: 12, videoUrl: '', handle: '@sahirapremiumoutlet', verified: true, following: true, category: 'apparel', caption: 'Espresso Suede Jacket, Cream Knit & Pebble Leather Bag — gaya kembara santai hujung minggu. #SahiraTraveller #VintageCollection', audio: 'Weekend Departure — Studio Reel 13', baseLikes: 17320, baseSaves: 3150, baseShares: 790, bgTone: ['#181513', '#2d2621'], comments: [{ id: 'c20', author: '@amirul_vibe', time: '18m', ts: Date.now() - 1080000, likes: 118, text: 'Kombinasi suede espresso + knit krim + beg kulit ni memang clean untuk travel.', replies: [] }] }
 ];
 
+const escText = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clampDiscount = d => Math.min(95, Math.max(0, Math.round(Number(d) || 0)));
+const isOfferActive = it => Boolean(it?.offerEnabled && it?.offerEndsAt && Date.parse(it.offerEndsAt) > Date.now());
+const getEffectiveDiscount = it => it?.offerEnabled ? (isOfferActive(it) ? clampDiscount(it.offerDiscount) : 0) : clampDiscount(it?.discount);
 const getSalePrice = it => {
   const base = Math.max(0, Number(it?.price) || 0);
-  const disc = clampDiscount(it?.discount);
+  const disc = getEffectiveDiscount(it);
   return disc > 0 ? Number((base * (1 - disc / 100)).toFixed(2)) : base;
 };
 const fmtMoneyRm = v => { const n = Number(v) || 0; const abs = Math.abs(n).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `-RM ${abs}` : `RM ${abs}`; };
+const formatOfferEndForInput = iso => {
+  const d = iso ? new Date(iso) : null;
+  if (!d || !Number.isFinite(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const formatCountdown = iso => {
+  const left = Math.max(0, Date.parse(iso || '') - Date.now());
+  const total = Math.floor(left / 1000);
+  return `${Math.floor(total / 86400)}h ${String(Math.floor(total / 3600) % 24).padStart(2, '0')}j ${String(Math.floor(total / 60) % 60).padStart(2, '0')}m ${String(total % 60).padStart(2, '0')}s`;
+};
 const formatItemPriceHtml = it => {
   const base = Math.max(0, Number(it?.price) || 0);
-  const disc = clampDiscount(it?.discount);
+  const disc = getEffectiveDiscount(it);
   const sale = getSalePrice(it);
+  const offer = isOfferActive(it);
+  const offerLabel = offer ? (it.offerLabel || (it.offerType === 'clearance' ? 'CLEARANCE' : 'SPECIAL OFFER')) : '';
   return disc > 0
-    ? `<span class="sahira-price-sale"><s>${fmtMoneyRm(base)}</s> <strong>${fmtMoneyRm(sale)}</strong> <span class="sahira-disc-pill">-${disc}%</span></span>`
+    ? `<span class="sahira-price-sale${offer ? ' is-special-offer' : ''}"><s>${fmtMoneyRm(base)}</s> <strong>${fmtMoneyRm(sale)}</strong> <span class="sahira-disc-pill">-${disc}%</span>${offerLabel ? ` <span class="sahira-offer-pill">${escText(offerLabel)}</span><span class="sahira-offer-countdown" data-offer-countdown="${escText(it.offerEndsAt)}">TAMAT DALAM ${formatCountdown(it.offerEndsAt)}</span>` : ''}</span>`
     : `<span>${fmtMoneyRm(base)}</span>`;
 };
 
@@ -2450,6 +2466,7 @@ function normalizeAdminConfig(raw) {
     const sizes = normalizeSizes(it.sizes || fallback.sizes, category);
     const stock = it.stock !== undefined ? Math.max(0, parseInt(it.stock, 10) || 0) : (fallback.stock ?? 18);
     const discount = clampDiscount(it.discount ?? fallback.discount ?? 0);
+    const offerEndsAt = it.offerEndsAt || fallback.offerEndsAt || null;
     return {
       id: String(it.id || 'item-' + Date.now() + '-' + idx),
       name: String(it.name || fallback.name || 'Item'),
@@ -2458,6 +2475,11 @@ function normalizeAdminConfig(raw) {
       isNew: it.isNew !== undefined ? Boolean(it.isNew) : Boolean(fallback.isNew),
       price: Number(it.price ?? fallback.price ?? 0),
       discount,
+      offerEnabled: it.offerEnabled !== undefined ? Boolean(it.offerEnabled) : Boolean(fallback.offerEnabled),
+      offerType: String(it.offerType || fallback.offerType || 'flash_sale'),
+      offerLabel: String(it.offerLabel || fallback.offerLabel || ''),
+      offerDiscount: clampDiscount(it.offerDiscount ?? fallback.offerDiscount ?? 0),
+      offerEndsAt: offerEndsAt && Date.parse(offerEndsAt) ? new Date(offerEndsAt).toISOString() : null,
       stock,
       sizes,
       image: String(it.image || fallback.image || ''),
@@ -2556,6 +2578,17 @@ function serializeConfigForStorage(cfg) {
 }
 
 let activeConfig = getStoredAdminConfig();
+
+setInterval(() => {
+  let expired = false;
+  document.querySelectorAll('[data-offer-countdown]').forEach(el => {
+    const endsAt = el.getAttribute('data-offer-countdown') || '';
+    const left = Date.parse(endsAt) - Date.now();
+    if (left > 0) el.textContent = `TAMAT DALAM ${formatCountdown(endsAt)}`;
+    else expired = true;
+  });
+  if (expired) applyConfigToDOM(activeConfig);
+}, 1000);
 
 function renderLookThumbPickerTrigger(look, idx) {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3040,6 +3073,16 @@ function setupAdminPortal() {
         <div class="admin-kpi-card"><span class="admin-kpi-label">Sales Bulan Ini</span><strong class="admin-kpi-value">${money(salesSnap.monthPaidValue)}</strong><span class="admin-kpi-meta">Target ${salesSnap.monthPct}% drpd ${money(salesSnap.targets.monthly)}</span></div>
         <div class="admin-kpi-card"><span class="admin-kpi-label">Lock &amp; Bayaran</span><strong class="admin-kpi-value">${lockStats.lockedUnits}</strong><span class="admin-kpi-meta">${lockStats.paidUnits} unit Complete Payment</span></div>
       `;
+    }
+
+    const offersList = document.getElementById('admin-offers-list');
+    if (offersList) {
+      const offerItems = items.filter(it => it.offerEnabled && it.offerEndsAt);
+      offersList.innerHTML = offerItems.length ? offerItems.map(it => {
+        const active = isOfferActive(it);
+        const ends = it.offerEndsAt ? formatOrderDate(it.offerEndsAt) : '-';
+        return `<div class="admin-offer-row ${active ? 'is-active' : 'is-expired'}"><img src="${esc(it.image)}" alt="${esc(it.name)}"><div><strong>${esc(it.name)}</strong><span>${active ? `${esc(it.offerLabel || 'Special Offer')} · -${clampDiscount(it.offerDiscount)}% · Tamat ${esc(ends)}` : 'Offer tamat · harga asal digunakan'}</span></div><button type="button" class="admin-btn secondary admin-btn-xs" data-admin-jump="products">Edit</button></div>`;
+      }).join('') : '<div class="admin-empty-box">Belum ada special offer aktif. Buka Urus Offer Item untuk pilih item dan tetapkan countdown.</div>';
     }
 
     if (lowList) {
@@ -3901,6 +3944,22 @@ function setupAdminPortal() {
                   ${buildSizeChipsHtml(activeSizes, cat, 'data-size-toggle', i)}
                 </div>
                 <input type="text" class="admin-input-text" data-prod-field="sizes" data-idx="${i}" value="${esc(activeSizes.join(', '))}" placeholder="Contoh: S, M, L atau Free Size">
+              </div>
+            </div>
+            <div class="admin-offer-box">
+              <div class="admin-offer-head"><strong>Special Offer / Promo Urgency</strong><span>Auto kembali ke harga asal selepas tamat</span></div>
+              <div class="admin-prod-top-row">
+                <label class="admin-check-label"><input type="checkbox" data-prod-field="offerEnabled" data-idx="${i}" ${item.offerEnabled ? 'checked' : ''}> Aktifkan offer</label>
+                <select class="admin-input-text" data-prod-field="offerType" data-idx="${i}">
+                  <option value="flash_sale" ${item.offerType === 'flash_sale' ? 'selected' : ''}>Flash Sale</option>
+                  <option value="clearance" ${item.offerType === 'clearance' ? 'selected' : ''}>Clearance</option>
+                  <option value="member" ${item.offerType === 'member' ? 'selected' : ''}>Member Offer</option>
+                </select>
+                <input type="text" class="admin-input-text" data-prod-field="offerLabel" data-idx="${i}" value="${esc(item.offerLabel || '')}" placeholder="Label contoh: BAKI 2 UNIT">
+              </div>
+              <div class="admin-prod-top-row">
+                <label class="admin-form-group"><span>Promo diskaun (%)</span><input type="number" min="0" max="95" step="1" class="admin-input-text" data-prod-field="offerDiscount" data-idx="${i}" value="${Number(item.offerDiscount || 0)}"></label>
+                <label class="admin-form-group"><span>Tamat pada</span><input type="datetime-local" class="admin-input-text" data-prod-field="offerEndsAt" data-idx="${i}" value="${formatOfferEndForInput(item.offerEndsAt)}"></label>
               </div>
             </div>
             <div class="admin-form-row-2">
@@ -5916,6 +5975,12 @@ function setupAdminPortal() {
       if (field === 'price') item.price = Math.max(0, parseFloat(t.value) || 0);
       else if (field === 'discount') {
         item.discount = clampDiscount(t.value);
+      } else if (field === 'offerEnabled') {
+        item.offerEnabled = Boolean(t.checked);
+      } else if (field === 'offerDiscount') {
+        item.offerDiscount = clampDiscount(t.value);
+      } else if (field === 'offerEndsAt') {
+        item.offerEndsAt = t.value ? new Date(t.value).toISOString() : null;
       } else if (field === 'stock') {
         item.stock = Math.max(0, parseInt(t.value, 10) || 0);
         dialog.querySelectorAll(`[data-stock-badge="${idx}"]`).forEach(badge => {
@@ -6005,6 +6070,15 @@ function setupAdminPortal() {
       if (sizeLbl) sizeLbl.textContent = `(${item.sizes.length} dipilih)`;
       syncProdCardSummary(idx);
       setDirty(true);
+      return;
+    }
+
+    if (t.dataset.prodField === 'offerType') {
+      const idx = parseInt(t.dataset.idx, 10);
+      if (workingConfig.items[idx]) {
+        workingConfig.items[idx].offerType = t.value;
+        setDirty(true);
+      }
       return;
     }
 
