@@ -7428,7 +7428,7 @@ function setupAdminPortal() {
     }, { passive: true });
     const railAppEl = document.getElementById('hand-rail-pro');
     railAppEl?.addEventListener('pointerdown', e => {
-      if (e.target.closest('#rail-mobile-topbar')) return;
+      if (e.target.closest('#rail-mobile-topbar, .rail-topbar')) return;
       hideRailMobileChrome();
     }, { passive: true });
 
