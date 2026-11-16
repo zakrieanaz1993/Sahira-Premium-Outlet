@@ -34,7 +34,7 @@ window.SahiraCutoutFeet = (() => {
   const cache = new Map();
   const pending = new Map();
   const clampVal = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const fallback = { ar: '0.5625', footY: '0.0000', footX: '45.0%', footW: '56.0%', rwFootW: '66.0%' };
+  const fallback = { ar: '0.5625', topY: 0, footY: '0.0000', footX: '45.0%', footW: '56.0%', rwFootW: '66.0%' };
 
   const probe = url => {
     if (!url) return Promise.resolve(fallback);
@@ -68,6 +68,15 @@ window.SahiraCutoutFeet = (() => {
             resolve(res);
             return;
           }
+          let first = 0;
+          for (let y = 0; y < h; y++) {
+            let hit = false;
+            for (let x = 0; x < w; x++) {
+              if (d[(y * w + x) * 4 + 3] > 40) { hit = true; break; }
+            }
+            if (hit) { first = y; break; }
+          }
+          const topY = first / h;
           const bandTop = Math.max(0, last - Math.round(h * 0.035));
           let minX = w;
           let maxX = -1;
@@ -85,7 +94,7 @@ window.SahiraCutoutFeet = (() => {
           const footX = `${clampVal(cxPct, 22, 78).toFixed(1)}%`;
           const footW = `${clampVal(spanPct * 1.48, 38, 82).toFixed(1)}%`;
           const rwFootW = `${clampVal(spanPct * 1.68, 46, 94).toFixed(1)}%`;
-          const res = { ar, footY, footX, footW, rwFootW };
+          const res = { ar, topY, footY, footX, footW, rwFootW };
           cache.set(url, res);
           resolve(res);
         } catch (_) {
@@ -100,12 +109,14 @@ window.SahiraCutoutFeet = (() => {
     return p;
   };
 
-  const applyToFigure = (el, url) => {
+  // trimTop crops empty headroom above the figure (keeping a 3% margin) so every look fills its frame equally.
+  const applyToFigure = (el, url, trimTop = false) => {
     if (!el || !url) return;
     const apply = m => {
       if (!el.isConnected) return;
-      el.style.setProperty('--figure-ar', m.ar);
-      el.style.setProperty('--foot-y', m.footY);
+      const keep = trimTop ? 1 - clampVal((m.topY || 0) - 0.03, 0, 0.4) : 1;
+      el.style.setProperty('--figure-ar', (Number(m.ar) / keep).toFixed(4));
+      el.style.setProperty('--foot-y', (Number(m.footY) / keep).toFixed(4));
       el.style.setProperty('--foot-x', m.footX);
       el.style.setProperty('--foot-w', m.footW);
     };
@@ -7068,7 +7079,7 @@ function setupAdminPortal() {
             <span>${pairedProducts.length} PIECES</span>
           </div>
           <div class="orbit-look-stage" data-orbit-inspect-look="${idx}" role="button" tabindex="0" aria-label="Inspect Look ${idx + 1}: ${esc(look.name)}">
-            <div class="orbit-look-figure${idx === 2 ? ' is-look-03' : ''}">
+            <div class="orbit-look-figure">
               <span class="orbit-look-shadow" aria-hidden="true"></span>
               <img src="${esc(look.src)}" srcset="${esc(look.srcset || look.src)}" sizes="(min-width: 1100px) 360px, 280px" alt="${esc(look.name)}" loading="lazy" decoding="async">
             </div>
@@ -7103,7 +7114,7 @@ function setupAdminPortal() {
             </div>
           </div>
         `;
-        window.SahiraCutoutFeet?.applyToFigure(card.querySelector('.orbit-look-figure'), look.src);
+        window.SahiraCutoutFeet?.applyToFigure(card.querySelector('.orbit-look-figure'), look.src, true);
         looksGrid.appendChild(card);
       });
     }

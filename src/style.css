@@ -3725,13 +3725,9 @@ dialog.admin-modal::backdrop {
   justify-content: center;
 }
 
-.orbit-look-figure.is-look-03 {
-  aspect-ratio: 941 / 1338;
-}
-
-.orbit-look-figure.is-look-03 img {
-  object-fit: cover;
-  object-position: 50% 100%;
+.orbit-look-figure img {
+  object-fit: cover !important;
+  object-position: 50% 100% !important;
 }
 
 .orbit-look-shadow {
