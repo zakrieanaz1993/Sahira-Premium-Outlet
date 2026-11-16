@@ -5768,7 +5768,34 @@ dialog.rail-upload-modal::backdrop {
     max-height: 100%;
     aspect-ratio: auto;
     border: 0;
+    background: #0d0d0c;
     touch-action: pan-y;
+  }
+  .rail-player .rail-video-canvas,
+  .rail-player .rail-real-video {
+    top: 52px;
+    bottom: 96px;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+    background: transparent;
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0, #000 9%, #000 86%, transparent 100%),
+      linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, transparent 0, #000 9%, #000 86%, transparent 100%),
+      linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+    mask-composite: intersect;
+  }
+  .rail-player::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 120px;
+    background: linear-gradient(to bottom, rgba(13, 13, 12, 0.85) 0%, rgba(13, 13, 12, 0) 100%);
+    z-index: 5;
+    pointer-events: none;
   }
   .rail-top-hud {
     top: 10px;
@@ -8756,6 +8783,16 @@ dialog.auth-modal::backdrop {
   body.is-rail-view.is-rail-chrome-hidden .rail-mobile-chrome-bar {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  body.is-rail-view .rail-top-hud,
+  body.is-rail-view .rail-timecode {
+    transition: transform 0.34s cubic-bezier(.16, 1, .3, 1);
+  }
+
+  body.is-rail-view.is-rail-chrome-hidden .rail-top-hud,
+  body.is-rail-view.is-rail-chrome-hidden .rail-timecode {
+    transform: translateY(42px);
   }
 
   body.is-rail-view .rail-chrome-pill {
