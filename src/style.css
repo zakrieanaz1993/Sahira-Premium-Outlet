@@ -8992,6 +8992,17 @@ dialog.auth-modal::backdrop {
     transform: translateY(0);
   }
 
+  body.is-page-view .page-mobile-chrome-bar::before {
+    content: '';
+    position: absolute;
+    top: calc(-10px - env(safe-area-inset-top, 0px));
+    left: -12px;
+    right: -12px;
+    height: calc(52px + env(safe-area-inset-top, 0px));
+    background: #ffffff;
+    z-index: -1;
+  }
+
   body.is-page-view.is-page-chrome-hidden .page-chrome-pill {
     pointer-events: auto;
   }
