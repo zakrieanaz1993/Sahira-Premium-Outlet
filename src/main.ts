@@ -6395,6 +6395,71 @@ function setupAdminPortal() {
     URL.revokeObjectURL(url);
     notify(`${workingConfig.items.length} item berjaya dimuat turun sebagai CSV.`);
   };
+  const lookCsvFields = ['name', 'desc', 'src', 'products', 'pins'];
+  const exportLooksCsv = () => {
+    const lines = [lookCsvFields.join(',')];
+    workingConfig.looks.forEach(look => {
+      lines.push(lookCsvFields.map(field => {
+        if (field === 'products') return csvCell((Array.isArray(look.products) ? look.products : []).join('|'));
+        if (field === 'pins') return csvCell((Array.isArray(look.pins) ? look.pins : []).map(p => `${p.x},${p.y}`).join('|'));
+        return csvCell(look[field] ?? '');
+      }).join(','));
+    });
+    const blob = new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sahira-outfits-runway-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify(`${workingConfig.looks.length} outfit berjaya dimuat turun sebagai CSV.`);
+  };
+  const importLooksCsv = file => {
+    const reader = new FileReader();
+    reader.onload = event => {
+      const rows = parseCsv(String(event.target?.result || ''));
+      if (!rows.length || !rows.some(row => row.name?.trim())) {
+        notify('CSV tidak sah. Pastikan fail mempunyai lajur name dan sekurang-kurangnya satu outfit.', true);
+        return;
+      }
+      const validIds = new Set(workingConfig.items.map(it => it.id));
+      let updated = 0;
+      let added = 0;
+      let currentIdx = 0;
+      rows.forEach(row => {
+        const name = String(row.name || '').trim();
+        if (!name) return;
+        const src = String(row.src || '').trim();
+        const desc = String(row.desc || '').trim();
+        const products = String(row.products || '').split('|').map(s => s.trim()).filter(Boolean).filter(id => validIds.has(id));
+        const finalProds = products.length ? products.slice(0, MAX_LOOK_PINS) : [workingConfig.items[0]?.id].filter(Boolean);
+        const pins = String(row.pins || '').split('|').map(pair => {
+          const parts = pair.split(',').map(Number);
+          return { x: Math.min(96, Math.max(4, Math.round(parts[0] ?? 50))), y: Math.min(97, Math.max(4, Math.round(parts[1] ?? 50))) };
+        }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+        const finalPins = finalProds.map((_, pIdx) => pins[pIdx] || { ...DEFAULT_PIN_SET[pIdx % MAX_LOOK_PINS] });
+        if (currentIdx < workingConfig.looks.length) {
+          const lk = workingConfig.looks[currentIdx];
+          lk.name = name;
+          lk.desc = desc || name;
+          lk.src = src || lk.src;
+          lk.srcset = lk.src ? `${lk.src} 640w, ${lk.src} 1080w` : '';
+          lk.products = finalProds;
+          lk.pins = finalPins;
+          updated += 1;
+        } else {
+          workingConfig.looks.push({ name, desc: desc || name, src: src || '', srcset: src ? `${src} 640w, ${src} 1080w` : '', products: finalProds, pins: finalPins });
+          added += 1;
+        }
+        currentIdx += 1;
+      });
+      setDirty(true);
+      renderAdminLooks();
+      notify(`CSV outfits berjaya diimport: ${updated} dikemas kini, ${added} baharu. Tekan Simpan & Terbit.`);
+    };
+    reader.onerror = () => notify('CSV outfits tidak dapat dibaca.', true);
+    reader.readAsText(file);
+  };
   const importProductsCsv = file => {
     const reader = new FileReader();
     reader.onload = event => {
@@ -6453,6 +6518,12 @@ function setupAdminPortal() {
   document.getElementById('admin-prod-import-csv')?.addEventListener('change', event => {
     const file = event.target.files?.[0];
     if (file) importProductsCsv(file);
+    event.target.value = '';
+  });
+  document.getElementById('admin-look-export-csv')?.addEventListener('click', exportLooksCsv);
+  document.getElementById('admin-look-import-csv')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (file) importLooksCsv(file);
     event.target.value = '';
   });
   document.getElementById('admin-add-video-toggle')?.addEventListener('click', () => { newVideoForm.hidden = !newVideoForm.hidden; populateNewVideoLookSelect(); });
