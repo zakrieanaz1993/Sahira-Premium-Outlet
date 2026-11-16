@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Sahira — Runway &amp; Streetwear Storefront</title><meta name="description" content="Thirteen looks, styled head to toe. Explore the Sahira Home lookbook, interactive 3D runway, curated gallery, and Hand Rail Pro reels."><meta property="og:title" content="Sahira — Runway &amp; Streetwear Storefront"><meta property="og:description" content="Thirteen looks, styled head to toe. Explore the Sahira Home lookbook, interactive 3D runway, curated gallery, and Hand Rail Pro reels."><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="/src/style.css"><link rel="preload" as="image" href="/assets/aistudio/Hijabi_Woman_in_Casual_Denim_Style_ec4eaf01.png" fetchpriority="high"></head><body><header class="site-header shopify-section-group-header-group"><a href="./" class="brand" data-nav-view="home" aria-label="Sahira home"><span class="brand-wordmark">Sahira</span></a><nav aria-label="Main navigation"><a href="./" data-nav-view="home" aria-current="page">Home</a><a href="#our-gallery" data-nav-view="orbit">Our Gallery</a><a href="#hand-rail-pro" data-nav-view="rail">Hand Rail Pro</a><a href="#runway" data-nav-view="runway">Runway</a></nav><div class="header-actions">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Sahira — Runway &amp; Streetwear Storefront</title><meta name="description" content="Thirteen looks, styled head to toe. Explore the Sahira Home lookbook, interactive 3D runway, curated gallery, and Hand Rail Pro reels."><meta property="og:title" content="Sahira — Runway &amp; Streetwear Storefront"><meta property="og:description" content="Thirteen looks, styled head to toe. Explore the Sahira Home lookbook, interactive 3D runway, curated gallery, and Hand Rail Pro reels."><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="/src/style.css"><link rel="preload" as="image" href="/assets/aistudio/Hijabi_Woman_in_Casual_Denim_Style_ec4eaf01.png" fetchpriority="high"><meta property="og:image" content="https://bolt.new/static/og_default.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://bolt.new/static/og_default.png"></head><body><header class="site-header shopify-section-group-header-group"><a href="./" class="brand" data-nav-view="home" aria-label="Sahira home"><span class="brand-wordmark">Sahira</span></a><nav aria-label="Main navigation"><a href="./" data-nav-view="home" aria-current="page">Home</a><a href="#our-gallery" data-nav-view="orbit">Our Gallery</a><a href="#hand-rail-pro" data-nav-view="rail">Hand Rail Pro</a><a href="#runway" data-nav-view="runway">Runway</a></nav><div class="header-actions">
   <div class="cafe-audio-dock" id="cafe-audio-dock">
     <button type="button" id="cafe-audio-play" class="cafe-audio-btn" aria-label="Mainkan Jingle &amp; Muzik Cafe" title="Mainkan / Jeda Muzik Cafe" aria-pressed="false">
       <span class="cafe-eq" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -2174,6 +2174,8 @@
               <button type="button" class="admin-chip" data-admin-prod-filter="out">Habis</button>
             </div>
             <div class="admin-toolbar-actions">
+              <label class="admin-select-all-wrap"><input type="checkbox" id="admin-prod-select-all"> <span>Pilih semua</span></label>
+              <button type="button" id="admin-prod-bulk-delete" class="admin-btn danger admin-btn-sm" disabled>Padam dipilih</button>
               <button type="button" id="admin-prod-expand-all" class="admin-btn secondary admin-btn-sm">Kembang Semua</button>
               <button type="button" id="admin-add-prod-toggle" class="admin-btn primary admin-btn-sm">+ Tambah Item Baharu</button>
             </div>
@@ -2492,6 +2494,22 @@
     </div>
   </div>
   <div id="admin-pin-studio" class="admin-pin-studio" hidden aria-modal="true" role="dialog" aria-label="Laraskan Kedudukan Pin"></div>
+  <div id="admin-confirm-modal" class="admin-confirm-modal" hidden aria-modal="true" role="dialog" aria-labelledby="admin-confirm-title">
+    <div class="admin-confirm-card">
+      <div class="admin-confirm-icon" aria-hidden="true">!</div>
+      <div class="admin-confirm-copy">
+        <span class="admin-confirm-eyebrow">Tindakan kekal</span>
+        <h3 id="admin-confirm-title">Padam item dipilih?</h3>
+        <p id="admin-confirm-message"></p>
+        <div id="admin-confirm-list" class="admin-confirm-list"></div>
+        <p class="admin-confirm-note">Item ini akan dikeluarkan daripada inventori dan pangkalan data.</p>
+      </div>
+      <div class="admin-confirm-actions">
+        <button type="button" class="admin-btn secondary" data-bulk-cancel>Batal</button>
+        <button type="button" class="admin-btn danger" data-bulk-confirm>Padam item</button>
+      </div>
+    </div>
+  </div>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite" hidden></div>
 </dialog>
 <script type="module" src="/src/main.ts"></script></body></html>

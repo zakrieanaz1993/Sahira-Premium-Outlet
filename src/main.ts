@@ -1,5 +1,16 @@
 // @ts-nocheck
 'use strict';
+import {
+  initDatabase, getMembersCache, upsertMember, deleteMember,
+  getOrdersCache, addOrderToDb, toggleOrderItemInDb, markOrderPaidInDb,
+  markItemStockDeductedInDb, deleteOrderFromDb, getSummaryStatsFromCache,
+  getProductsCache, saveProductsToDb, getLooksCache, saveLooksToDb,
+  getReelsCache, saveReelsToDb, getStoreConfigCache, saveStoreConfigToDb,
+  getSalesTargetsCache, saveSalesTargetsToDb,
+  getReelSocialCache, toggleReelLike, toggleReelSave, toggleReelFollow, addReelComment,
+  saveAdminConfigToDb, resetAdminConfigInDb, normalizePhone as dbNormalizePhone,
+  LOCK_TTL_MS as DB_LOCK_TTL
+} from './lib/sahira-db';
 import poplinShirtImg from './assets/images/poplin_button_shirt_1794675024731.jpg';
 import pinstripeDenimImg from './assets/images/pinstripe_wide_denim_1794675024193.jpg';
 import oliveRibbedKnitImg from './assets/images/olive_ribbed_knit_1794675025096.jpg';
@@ -105,8 +116,7 @@ window.SahiraCutoutFeet = (() => {
   return { probe, applyToFigure };
 })();
 window.SahiraLockOrders = (() => {
-  const ORDERS_KEY = 'sahira_lock_orders_v1';
-  const LOCK_TTL_MS = 24 * 60 * 60 * 1000;
+  const LOCK_TTL_MS = DB_LOCK_TTL;
 
   const parseTimeMs = iso => {
     const t = Date.parse(iso || '');
@@ -125,90 +135,31 @@ window.SahiraLockOrders = (() => {
     return `Baki ${Math.max(1, mins)}m`;
   };
 
-  const normalizeItem = (it, fallbackCreatedAt) => {
-    const rawStatus = it?.status === 'paid' ? 'paid' : (it?.status === 'unlocked' ? 'unlocked' : 'locked');
-    return {
-      id: String(it?.id || ''),
-      variantId: Number(it?.variantId || 0),
-      name: String(it?.name || 'Item'),
-      size: String(it?.size || '-'),
-      qty: Math.max(1, parseInt(it?.qty, 10) || 1),
-      unitPrice: Math.max(0, Number(it?.unitPrice) || 0),
-      image: String(it?.image || ''),
-      status: rawStatus,
-      stockDeducted: Boolean(it?.stockDeducted),
-      lockedAt: String(it?.lockedAt || fallbackCreatedAt || new Date().toISOString()),
-      paidAt: it?.paidAt ? String(it.paidAt) : null,
-      unlockedAt: it?.unlockedAt ? String(it.unlockedAt) : null,
-      unlockReason: it?.unlockReason ? String(it.unlockReason) : null
-    };
-  };
-
-  const normalizeOrder = ord => {
-    const createdAt = String(ord?.createdAt || new Date().toISOString());
-    return {
-      id: String(ord?.id || 'ord-' + Date.now()),
-      ref: String(ord?.ref || 'SHR-' + Math.random().toString(36).slice(2, 6).toUpperCase()),
-      customerName: String(ord?.customerName || 'Pelanggan Sahira').trim() || 'Pelanggan Sahira',
-      customerPhone: String(ord?.customerPhone || '').trim(),
-      createdAt,
-      items: Array.isArray(ord?.items) ? ord.items.map(it => normalizeItem(it, createdAt)) : []
-    };
-  };
-
-  const saveOrders = list => {
-    try { localStorage.setItem(ORDERS_KEY, JSON.stringify(list)); } catch (_) {}
-  };
-
-  const sweepExpiredLocks = list => {
-    const now = Date.now();
-    let changedCount = 0;
-    list.forEach(ord => {
-      ord.items.forEach(it => {
-        if (it.status === 'locked') {
-          const lockedMs = parseTimeMs(it.lockedAt || ord.createdAt);
-          if (now - lockedMs >= LOCK_TTL_MS) {
-            it.status = 'unlocked';
-            it.unlockedAt = new Date(lockedMs + LOCK_TTL_MS).toISOString();
-            it.unlockReason = 'auto-24h';
-            changedCount += 1;
-          }
-        }
-      });
-    });
-    return changedCount;
-  };
-
-  const getOrders = () => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
-      const list = Array.isArray(raw) ? raw.map(normalizeOrder).filter(o => o.items.length > 0) : [];
-      if (sweepExpiredLocks(list) > 0) {
-        saveOrders(list);
-      }
-      return list;
-    } catch (_) {
-      return [];
-    }
-  };
-
-  const makeRef = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const tail = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    return 'SHR-' + tail;
-  };
+  const getOrders = () => getOrdersCache();
 
   const addOrder = ({ customerName, customerPhone, items }) => {
-    const orders = getOrders();
+    let result = null;
+    addOrderToDb({ customerName, customerPhone, items }).then(ord => { result = ord; });
+    // Return a synchronous placeholder that will be replaced by the async result
+    // The async write-through populates the cache immediately
     const now = new Date().toISOString();
-    const order = normalizeOrder({
-      id: 'ord-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      ref: makeRef(),
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const ref = 'SHR-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const orderId = 'ord-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const order = {
+      id: orderId,
+      ref,
       customerName: customerName || 'Pelanggan Sahira',
       customerPhone: customerPhone || '',
       createdAt: now,
       items: (items || []).map(it => ({
-        ...it,
+        id: String(it.id || ''),
+        variantId: Number(it.variantId || 0),
+        name: String(it.name || 'Item'),
+        size: String(it.size || '-'),
+        qty: Math.max(1, parseInt(it.qty, 10) || 1),
+        unitPrice: Math.max(0, Number(it.unitPrice) || 0),
+        image: String(it.image || ''),
         status: 'locked',
         stockDeducted: false,
         lockedAt: now,
@@ -216,128 +167,38 @@ window.SahiraLockOrders = (() => {
         unlockedAt: null,
         unlockReason: null
       }))
-    });
-    orders.unshift(order);
-    saveOrders(orders.slice(0, 150));
-    return order;
+    };
+    // The async addOrderToDb already unshifted to cache, but we return our sync version
+    return result || order;
   };
 
   const toggleItemStatus = (orderId, itemIdx, targetStatus) => {
-    const orders = getOrders();
-    const ord = orders.find(o => o.id === orderId);
+    toggleOrderItemInDb(orderId, itemIdx, targetStatus);
+    const ord = getOrdersCache().find(o => o.id === orderId);
     if (!ord || !ord.items[itemIdx]) return null;
-    const item = ord.items[itemIdx];
-    const now = new Date().toISOString();
-    let nextStatus = targetStatus;
-    if (nextStatus !== 'paid' && nextStatus !== 'locked' && nextStatus !== 'unlocked') {
-      nextStatus = item.status === 'paid' ? 'locked' : 'paid';
-    }
-    item.status = nextStatus;
-    if (nextStatus === 'paid') {
-      item.paidAt = now;
-      item.unlockedAt = null;
-      item.unlockReason = null;
-    } else if (nextStatus === 'locked') {
-      item.lockedAt = now;
-      item.paidAt = null;
-      item.unlockedAt = null;
-      item.unlockReason = null;
-    } else {
-      item.paidAt = null;
-      item.unlockedAt = now;
-      item.unlockReason = 'manual';
-    }
-    saveOrders(orders);
-    return item;
+    return ord.items[itemIdx];
   };
 
   const markOrderPaid = orderId => {
-    const orders = getOrders();
-    const ord = orders.find(o => o.id === orderId);
-    if (!ord) return false;
-    const now = new Date().toISOString();
-    ord.items.forEach(it => {
-      if (it.status !== 'paid') {
-        it.status = 'paid';
-        it.paidAt = now;
-        it.unlockedAt = null;
-        it.unlockReason = null;
-      }
-    });
-    saveOrders(orders);
+    markOrderPaidInDb(orderId);
     return true;
   };
 
   const markItemStockDeducted = (orderId, itemIdx) => {
-    const orders = getOrders();
-    const ord = orders.find(o => o.id === orderId);
-    if (!ord || !ord.items[itemIdx]) return false;
-    ord.items[itemIdx].stockDeducted = true;
-    saveOrders(orders);
+    markItemStockDeductedInDb(orderId, itemIdx);
     return true;
   };
 
   const deleteOrder = orderId => {
-    const orders = getOrders().filter(o => o.id !== orderId);
-    saveOrders(orders);
+    deleteOrderFromDb(orderId);
   };
 
-  const getSummaryStats = () => {
-    const orders = getOrders();
-    let lockedUnits = 0;
-    let lockedValue = 0;
-    let paidUnits = 0;
-    let paidValue = 0;
-    let unlockedUnits = 0;
-    let unlockedValue = 0;
-    const lockedByItemId = {};
-    const paidByItemId = {};
-    const unlockedByItemId = {};
-    const byItem = {};
-    orders.forEach(ord => {
-      ord.items.forEach(it => {
-        if (!byItem[it.id]) {
-          byItem[it.id] = { id: it.id, name: it.name, image: it.image, lockedQty: 0, paidQty: 0, unlockedQty: 0, orderRefs: new Set() };
-        }
-        byItem[it.id].orderRefs.add(ord.ref);
-        if (it.status === 'paid') {
-          paidUnits += it.qty;
-          paidValue += it.unitPrice * it.qty;
-          paidByItemId[it.id] = (paidByItemId[it.id] || 0) + it.qty;
-          byItem[it.id].paidQty += it.qty;
-        } else if (it.status === 'unlocked') {
-          unlockedUnits += it.qty;
-          unlockedValue += it.unitPrice * it.qty;
-          unlockedByItemId[it.id] = (unlockedByItemId[it.id] || 0) + it.qty;
-          byItem[it.id].unlockedQty += it.qty;
-        } else {
-          lockedUnits += it.qty;
-          lockedValue += it.unitPrice * it.qty;
-          lockedByItemId[it.id] = (lockedByItemId[it.id] || 0) + it.qty;
-          byItem[it.id].lockedQty += it.qty;
-        }
-      });
-    });
-    return {
-      orderCount: orders.length,
-      lockedUnits,
-      lockedValue,
-      paidUnits,
-      paidValue,
-      unlockedUnits,
-      unlockedValue,
-      lockedByItemId,
-      paidByItemId,
-      unlockedByItemId,
-      byItem
-    };
-  };
+  const getSummaryStats = () => getSummaryStatsFromCache();
 
   return {
     LOCK_TTL_MS,
     formatRemainingLock,
     getOrders,
-    saveOrders,
     addOrder,
     toggleItemStatus,
     markOrderPaid,
@@ -368,16 +229,17 @@ window.SahiraAuth = (() => {
   const escHtml = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   const getMembers = () => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(MEMBERS_KEY) || '[]');
-      return Array.isArray(raw) ? raw.filter(m => m && m.phoneNorm) : [];
-    } catch (_) {
-      return [];
-    }
+    return getMembersCache().map(m => ({
+      name: m.name,
+      phone: m.phone,
+      phoneNorm: m.phone_norm,
+      createdAt: m.created_at ? new Date(m.created_at).toISOString() : new Date().toISOString(),
+      lastLoginAt: m.last_login_at ? new Date(m.last_login_at).toISOString() : new Date().toISOString()
+    }));
   };
 
   const saveMembers = list => {
-    try { localStorage.setItem(MEMBERS_KEY, JSON.stringify(list.slice(0, 40))); } catch (_) {}
+    // No-op: members are now persisted via upsertMember/deleteMember to Supabase
   };
 
   const getUser = () => {
@@ -571,9 +433,7 @@ window.SahiraAuth = (() => {
       if (cleanName.length >= 2) existing.name = cleanName;
       existing.phone = cleanPhone || existing.phone;
       existing.lastLoginAt = now;
-      members.splice(idx, 1);
-      members.unshift(existing);
-      saveMembers(members);
+      upsertMember(existing);
       saveSession(existing);
       syncUI();
       if (!silent) notifyBagToast(`Selamat kembali, ${existing.name}!`);
@@ -608,8 +468,7 @@ window.SahiraAuth = (() => {
       createdAt: now,
       lastLoginAt: now
     };
-    members.unshift(member);
-    saveMembers(members);
+    upsertMember(member);
     saveSession(member);
     syncUI();
     window.SahiraAdminRefreshOrders?.();
@@ -708,11 +567,9 @@ window.RunwayBag = (() => {
   };
   const catalogData = {"source": "sahira-studio", "looks": [], "items": []};
   try {
-    const savedAdmin = localStorage.getItem('runway_admin_config_v9');
-    if (savedAdmin) {
-      const p = JSON.parse(savedAdmin);
-      if (p && Array.isArray(p.items) && p.items.length) catalogData.items = p.items.map(toCatalogItem);
-      if (p && Array.isArray(p.looks) && p.looks.length) catalogData.looks = p.looks.map(lk => ({ name: lk.name, description: lk.desc || lk.name, image: lk.src, products: lk.products || [] }));
+    if (typeof activeConfig === 'object' && activeConfig && Array.isArray(activeConfig.items) && activeConfig.items.length) {
+      catalogData.items = activeConfig.items.map(toCatalogItem);
+      if (Array.isArray(activeConfig.looks)) catalogData.looks = activeConfig.looks.map(lk => ({ name: lk.name, description: lk.desc || lk.name, image: lk.src, products: lk.products || [] }));
     }
   } catch (_) {}
 
@@ -772,11 +629,6 @@ window.RunwayBag = (() => {
     try {
       if (typeof activeConfig === 'object' && activeConfig?.whatsappNumber) {
         return String(activeConfig.whatsappNumber).replace(/[^\d]/g, '');
-      }
-      const savedAdmin = localStorage.getItem('runway_admin_config_v9');
-      if (savedAdmin) {
-        const parsed = JSON.parse(savedAdmin);
-        if (parsed?.whatsappNumber) return String(parsed.whatsappNumber).replace(/[^\d]/g, '');
       }
     } catch (_) {}
     return '';
@@ -2671,77 +2523,24 @@ const LEGACY_DEMO_IDS = new Set([
 ]);
 
 function pruneUnrelatedPinsOnce(parsed) {
-  try {
-    if (localStorage.getItem('runway_pin_cleanup_v1')) return parsed;
-    const stripProductFromLook = (lk, removeId) => {
-      if (!lk || !Array.isArray(lk.products) || lk.products.length <= 1) return false;
-      const idx = lk.products.indexOf(removeId);
-      if (idx === -1) return false;
-      lk.products.splice(idx, 1);
-      if (Array.isArray(lk.pins) && lk.pins.length > idx) lk.pins.splice(idx, 1);
-      return true;
-    };
-    let changed = false;
-    (parsed.looks || []).forEach(lk => {
-      const src = String(lk.src || '');
-      if (src.includes('Smartly_Dressed_Man_with_Leather_Bag_26b060d1')) {
-        if (stripProductFromLook(lk, 'heritage-leather-belt')) changed = true;
-        if (typeof lk.desc === 'string' && lk.desc.includes('brass leather belt,')) {
-          lk.desc = 'Brown herringbone tweed 3-piece blazer, camel wool trousers, pebble leather bag & tassel loafers.';
-          changed = true;
-        }
-      }
-      if (src.includes('Elegant_Woven_Handbag_Outfit_Portrait_067b0c3e')) {
-        if (stripProductFromLook(lk, 'studio-timepiece-cuff-set')) changed = true;
-        if (typeof lk.desc === 'string' && lk.desc.includes('& minimalist watch jewelry')) {
-          lk.desc = 'Champagne pleated lace-trim maxi skirt & woven cognac leather handbag.';
-          changed = true;
-        }
-      }
-    });
-    (parsed.reels || []).forEach(r => {
-      if (r && r.id === 'reel-look-11') {
-        if (r.category === 'belt') { r.category = 'footwear'; changed = true; }
-        if (typeof r.caption === 'string' && r.caption.includes('Brass Belt,')) {
-          r.caption = r.caption.replace('Tweed Blazer, Brass Belt, Loafers', 'Tweed Blazer, Camel Trousers, Loafers');
-          changed = true;
-        }
-      }
-    });
-    if (changed) {
-      localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(parsed));
-    }
-    localStorage.setItem('runway_pin_cleanup_v1', '1');
-  } catch (_) {}
   return parsed;
 }
 
 function getStoredAdminConfig() {
-  try {
-    const v9 = localStorage.getItem(ADMIN_STORAGE_KEY);
-    if (v9) {
-      const parsed = JSON.parse(v9);
-      if (parsed && Array.isArray(parsed.looks) && Array.isArray(parsed.items)) {
-        return normalizeAdminConfig(pruneUnrelatedPinsOnce(parsed));
-      }
-    }
-    const legacy = localStorage.getItem('runway_admin_config_v8') || localStorage.getItem('runway_admin_config_v7') || localStorage.getItem('runway_admin_config_v6');
-    if (legacy) {
-      const parsed = JSON.parse(legacy);
-      if (parsed && Array.isArray(parsed.looks) && Array.isArray(parsed.items)) {
-        const defaultItemIds = new Set(DEFAULT_ITEMS.map(d => d.id));
-        const customItems = parsed.items.filter(it => it && it.id && !LEGACY_DEMO_IDS.has(it.id) && !defaultItemIds.has(it.id));
-        const customLooks = parsed.looks.slice(DEFAULT_LOOKS.length);
-        const defaultReelIds = new Set(DEFAULT_REELS.map(r => r.id));
-        const customReels = Array.isArray(parsed.reels) ? parsed.reels.filter(r => r && r.id && !defaultReelIds.has(r.id)) : [];
-        return normalizeAdminConfig({
-          items: [...DEFAULT_ITEMS, ...customItems],
-          looks: [...DEFAULT_LOOKS, ...customLooks],
-          reels: [...customReels, ...DEFAULT_REELS]
-        });
-      }
-    }
-  } catch (_) {}
+  // Use Supabase cache; fall back to defaults if empty
+  const dbProducts = getProductsCache();
+  const dbLooks = getLooksCache();
+  const dbReels = getReelsCache();
+  const storeConfig = getStoreConfigCache();
+
+  if (dbProducts.length || dbLooks.length || dbReels.length) {
+    return normalizeAdminConfig({
+      looks: dbLooks.length ? dbLooks : DEFAULT_LOOKS,
+      items: dbProducts.length ? dbProducts : DEFAULT_ITEMS,
+      reels: dbReels.length ? dbReels : DEFAULT_REELS,
+      whatsappNumber: storeConfig.whatsappNumber || ''
+    });
+  }
   return normalizeAdminConfig({ looks: DEFAULT_LOOKS, items: DEFAULT_ITEMS, reels: DEFAULT_REELS });
 }
 
@@ -3048,19 +2847,15 @@ function setupAdminPortal() {
 
   const SALES_TARGET_KEY = 'sahira_sales_targets_v1';
   const getSalesTargets = () => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(SALES_TARGET_KEY) || 'null');
-      return {
-        daily: Math.max(0, Number(raw?.daily ?? 500) || 500),
-        monthly: Math.max(0, Number(raw?.monthly ?? 5000) || 5000),
-        monthlyUnits: Math.max(0, parseInt(raw?.monthlyUnits ?? 40, 10) || 40)
-      };
-    } catch (_) {
-      return { daily: 500, monthly: 5000, monthlyUnits: 40 };
-    }
+    const cached = getSalesTargetsCache();
+    return {
+      daily: Math.max(0, Number(cached.daily ?? 500) || 500),
+      monthly: Math.max(0, Number(cached.monthly ?? 5000) || 5000),
+      monthlyUnits: Math.max(0, parseInt(cached.monthlyUnits ?? 40, 10) || 40)
+    };
   };
   const saveSalesTargets = t => {
-    try { localStorage.setItem(SALES_TARGET_KEY, JSON.stringify(t)); } catch (_) {}
+    saveSalesTargetsToDb(t);
   };
 
   let adminSessionUnlocked = false;
@@ -3077,6 +2872,7 @@ function setupAdminPortal() {
   let orderSearch = '';
   let custSearch = '';
   const expandedProdIds = new Set();
+  const selectedProductIds = new Set();
   const expandedLookIndices = new Set();
   const expandedCustKeys = new Set();
   let isDirty = false;
@@ -3130,6 +2926,11 @@ function setupAdminPortal() {
     const path = (window.location.pathname || '').toLowerCase();
     return hash === '#admin' || hash === '#studio-admin' || params.get('admin') === '1' || params.get('admin') === 'true' || params.get('studio') === 'admin' || path.endsWith('/admin') || path.endsWith('/admin/');
   };
+
+  const confirmModal = document.getElementById('admin-confirm-modal');
+  const confirmMessage = document.getElementById('admin-confirm-message');
+  const confirmList = document.getElementById('admin-confirm-list');
+  const closeBulkConfirm = () => { if (confirmModal) confirmModal.hidden = true; };
 
   const notify = (msg, isError = false) => {
     if (dialog.open && adminToastEl) {
@@ -3965,6 +3766,22 @@ function setupAdminPortal() {
     if (imgEl && item.image) imgEl.src = item.image;
   }
 
+  function updateProductSelectionControls() {
+    const selectAll = document.getElementById('admin-prod-select-all');
+    const bulkDelete = document.getElementById('admin-prod-bulk-delete');
+    const visibleIds = Array.from(dialog.querySelectorAll('.admin-prod-select')).map(input => input.dataset.prodSelect).filter(Boolean);
+    const selectedVisible = visibleIds.filter(id => selectedProductIds.has(id));
+    if (selectAll) {
+      selectAll.checked = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+      selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
+      selectAll.disabled = visibleIds.length === 0;
+    }
+    if (bulkDelete) {
+      bulkDelete.disabled = selectedProductIds.size === 0;
+      bulkDelete.textContent = selectedProductIds.size ? `Padam dipilih (${selectedProductIds.size})` : 'Padam dipilih';
+    }
+  }
+
   function renderAdminProducts() {
     updateSidebarCounts();
     const container = document.getElementById('admin-products-container');
@@ -3986,6 +3803,7 @@ function setupAdminPortal() {
     if (!filtered.length) {
       container.innerHTML = '<div class="admin-empty-box">Tiada item sepadan dengan penapis atau carian anda.</div>';
       updateProdExpandAllBtn();
+      updateProductSelectionControls();
       return;
     }
 
@@ -4001,6 +3819,9 @@ function setupAdminPortal() {
       return `
       <div class="admin-product-card${isExpanded ? ' is-expanded' : ''}" data-prod-idx="${i}" data-prod-key="${esc(prodKey)}">
         <div class="admin-prod-summary-bar">
+          <label class="admin-prod-select-wrap" title="Pilih ${esc(item.name)}">
+            <input type="checkbox" class="admin-prod-select" data-prod-select="${esc(item.id)}" ${selectedProductIds.has(item.id) ? 'checked' : ''} aria-label="Pilih ${esc(item.name)}">
+          </label>
           <button type="button" class="admin-prod-summary-trigger" data-prod-toggle="${esc(prodKey)}" aria-expanded="${isExpanded}">
             <div class="admin-prod-summary-thumb">
               <img src="${esc(item.image)}" alt="${esc(item.name)}" id="prod-summary-img-${i}">
@@ -4106,6 +3927,7 @@ function setupAdminPortal() {
     `;
     }).join('');
     updateProdExpandAllBtn();
+    updateProductSelectionControls();
     if (scrollWrap) scrollWrap.scrollTop = prevScroll;
   }
 
@@ -5031,17 +4853,17 @@ function setupAdminPortal() {
     activeConfig.reels = workingConfig.reels.map(r => ({ ...r }));
     let storageSaved = true;
     try {
-      localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(serializeConfigForStorage(activeConfig)));
+      saveAdminConfigToDb(activeConfig);
     } catch (err) {
       storageSaved = false;
-      console.warn('LocalStorage quota warning:', err);
+      console.warn('Supabase save warning:', err);
     }
     applyConfigToDOM(activeConfig);
     setDirty(false);
     renderAdminOverview();
 
     if (!storageSaved) {
-      notify('Ruang simpanan pelayar penuh — perubahan aktif untuk sesi ini tetapi gagal disimpan ke pelayar. Kecilkan saiz gambar atau muat turun sandaran JSON.', true);
+      notify('Ralat menyimpan ke pangkalan data — perubahan aktif untuk sesi ini. Sila cuba lagi.', true);
       return;
     }
 
@@ -5254,6 +5076,75 @@ function setupAdminPortal() {
       return;
     }
 
+    const productSelect = e.target.closest('[data-prod-select]');
+    if (productSelect) {
+      const productId = productSelect.dataset.prodSelect;
+      if (productId) {
+        if (productSelect.checked) selectedProductIds.add(productId);
+        else selectedProductIds.delete(productId);
+        updateProductSelectionControls();
+      }
+      return;
+    }
+
+    const selectAllProducts = e.target.closest('#admin-prod-select-all');
+    if (selectAllProducts) {
+      const visibleIds = Array.from(dialog.querySelectorAll('.admin-prod-select')).map(input => input.dataset.prodSelect).filter(Boolean);
+      visibleIds.forEach(id => {
+        if (selectAllProducts.checked) selectedProductIds.add(id);
+        else selectedProductIds.delete(id);
+      });
+      dialog.querySelectorAll('.admin-prod-select').forEach(input => { input.checked = selectAllProducts.checked; });
+      updateProductSelectionControls();
+      return;
+    }
+
+    const bulkDeleteProducts = e.target.closest('#admin-prod-bulk-delete');
+    if (bulkDeleteProducts) {
+      const selectedIds = Array.from(selectedProductIds).filter(id => workingConfig.items.some(item => item.id === id));
+      if (!selectedIds.length) return;
+      if (selectedIds.length >= workingConfig.items.length) {
+        notify('Simpan sekurang-kurangnya satu item dalam inventori.', true);
+        return;
+      }
+      const selectedNames = selectedIds.map(id => workingConfig.items.find(item => item.id === id)?.name).filter(Boolean);
+      if (confirmMessage) confirmMessage.textContent = `${selectedIds.length} item akan dipadam daripada koleksi anda.`;
+      if (confirmList) confirmList.innerHTML = selectedNames.map(name => `<div>${esc(name)}</div>`).join('');
+      if (confirmModal) {
+        confirmModal.dataset.selectedIds = JSON.stringify(selectedIds);
+        confirmModal.hidden = false;
+      }
+      return;
+    }
+
+    const cancelBulkConfirm = e.target.closest('[data-bulk-cancel]');
+    if (cancelBulkConfirm) { closeBulkConfirm(); return; }
+
+    const confirmBulkDelete = e.target.closest('[data-bulk-confirm]');
+    if (confirmBulkDelete) {
+      const selectedIds = JSON.parse(confirmModal?.dataset.selectedIds || '[]');
+      if (!selectedIds.length) { closeBulkConfirm(); return; }
+      closeBulkConfirm();
+      const removed = new Set(selectedIds);
+      workingConfig.items = workingConfig.items.filter(item => !removed.has(item.id));
+      const fallbackId = workingConfig.items[0]?.id;
+      workingConfig.looks.forEach(look => {
+        const oldProducts = Array.isArray(look.products) ? look.products : [];
+        const oldPins = Array.isArray(look.pins) ? look.pins : [];
+        const kept = oldProducts.map((id, pinIndex) => ({ id, pin: oldPins[pinIndex] })).filter(entry => !removed.has(entry.id));
+        look.products = kept.length ? kept.map(entry => entry.id) : [fallbackId].filter(Boolean);
+        look.pins = kept.length ? kept.map(entry => entry.pin || { ...DEFAULT_PIN_SET[0] }) : [{ ...DEFAULT_PIN_SET[0] }];
+      });
+      selectedProductIds.clear();
+      expandedProdIds.clear();
+      activeConfig = JSON.parse(JSON.stringify(workingConfig));
+      applyConfigToDOM(activeConfig);
+      saveAdminConfigToDb(activeConfig).then(() => notify(`${selectedIds.length} item berjaya dipadam dan dikemas kini dalam pangkalan data.`));
+      setDirty(false);
+      renderAdminProducts();
+      return;
+    }
+
     const prodExpandAllBtn = e.target.closest('#admin-prod-expand-all');
     if (prodExpandAllBtn) {
       const container = document.getElementById('admin-products-container');
@@ -5348,8 +5239,7 @@ function setupAdminPortal() {
       const targetNorm = custDelMemberBtn.dataset.custDelMember;
       if (targetNorm) {
         try {
-          const members = (window.SahiraAuth?.getMembers?.() || []).filter(m => m.phoneNorm !== targetNorm);
-          localStorage.setItem('sahira_members_v1', JSON.stringify(members));
+          deleteMember(targetNorm);
           const curUser = window.SahiraAuth?.getUser?.();
           if (curUser && curUser.phoneNorm === targetNorm) window.SahiraAuth?.logout?.();
         } catch (_) {}
@@ -5402,9 +5292,7 @@ function setupAdminPortal() {
       const digits = String(waInp?.value || '').replace(/[^\d]/g, '');
       workingConfig.whatsappNumber = digits;
       activeConfig.whatsappNumber = digits;
-      try {
-        localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(serializeConfigForStorage(activeConfig)));
-      } catch (_) {}
+      saveStoreConfigToDb(digits);
       if (waInp) waInp.value = digits;
       notify(digits ? `No. WhatsApp Butik (${digits}) disimpan!` : 'No. WhatsApp Butik dikosongkan.');
       return;
@@ -5454,9 +5342,7 @@ function setupAdminPortal() {
         const activeCatItem = activeConfig.items.find(x => x.id === ordItem.id);
         if (activeCatItem) activeCatItem.stock = catItem.stock;
         window.SahiraLockOrders.markItemStockDeducted(orderId, itemIdx);
-        try {
-          localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(serializeConfigForStorage(activeConfig)));
-        } catch (_) {}
+        saveAdminConfigToDb(activeConfig);
         applyConfigToDOM(activeConfig);
         renderAdminOrders();
         updateSidebarCounts();
@@ -6359,12 +6245,7 @@ function setupAdminPortal() {
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       if (confirm('Kembalikan semua outfit, stok item & video kepada tetapan asal Sahira Premium Outlet?')) {
-        try {
-          localStorage.removeItem(ADMIN_STORAGE_KEY);
-          localStorage.removeItem('runway_admin_config_v8');
-          localStorage.removeItem('runway_admin_config_v7');
-          localStorage.removeItem('runway_admin_config_v6');
-        } catch (_) {}
+        resetAdminConfigInDb();
         activeConfig = normalizeAdminConfig({ looks: DEFAULT_LOOKS, items: DEFAULT_ITEMS, reels: DEFAULT_REELS });
         workingConfig = normalizeAdminConfig(JSON.parse(JSON.stringify(activeConfig)));
         applyConfigToDOM(activeConfig);
@@ -6652,9 +6533,14 @@ function setupAdminPortal() {
     if (railEl) railEl.hidden = !isRail;
 
     document.body.classList.toggle('is-runway-view', isRunway);
+    document.body.classList.toggle('is-rail-view', isRail);
     if (!isRunway) {
       document.body.classList.remove('is-runway-chrome-hidden');
       clearTimeout(window._runwayChromeTimer);
+    }
+    if (!isRail) {
+      document.body.classList.remove('is-rail-chrome-hidden');
+      clearTimeout(window._railChromeTimer);
     }
 
     document.querySelectorAll('.site-header nav a[data-nav-view]').forEach(link => {
@@ -6692,6 +6578,13 @@ function setupAdminPortal() {
         try { history.replaceState(null, '', '#hand-rail-pro'); } catch (_) { window.location.hash = 'hand-rail-pro'; }
       }
       window.scrollTo({ top: 0, behavior: 'auto' });
+      document.body.classList.remove('is-rail-chrome-hidden');
+      clearTimeout(window._railChromeTimer);
+      if (window.matchMedia('(max-width: 749px)').matches) {
+        window._railChromeTimer = setTimeout(() => {
+          if (document.body.classList.contains('is-rail-view')) document.body.classList.add('is-rail-chrome-hidden');
+        }, 900);
+      }
       if (window.HandRailPro && typeof window.HandRailPro.activate === 'function') {
         window.HandRailPro.activate();
       }
@@ -7484,6 +7377,18 @@ function setupAdminPortal() {
       if (document.body.classList.contains('is-runway-view') && !document.body.classList.contains('is-runway-chrome-hidden')) {
         showRunwayMobileChrome(5000);
       }
+      if (document.body.classList.contains('is-rail-view')) {
+        document.body.classList.remove('is-rail-chrome-hidden');
+        clearTimeout(window._railChromeTimer);
+      }
+    }, { passive: true });
+    document.getElementById('hand-rail-pro')?.addEventListener('pointerdown', e => {
+      if (!window.matchMedia('(max-width: 749px)').matches || e.target.closest('.rail-drawer')) return;
+      document.body.classList.remove('is-rail-chrome-hidden');
+      clearTimeout(window._railChromeTimer);
+      window._railChromeTimer = setTimeout(() => {
+        if (document.body.classList.contains('is-rail-view')) document.body.classList.add('is-rail-chrome-hidden');
+      }, 3500);
     }, { passive: true });
     const runwayElRef = document.querySelector('runway-section');
     runwayElRef?.addEventListener('pointerdown', e => {
@@ -7534,26 +7439,20 @@ function setupAdminPortal() {
   };
 
   function loadSocialState() {
-    try {
-      const raw = localStorage.getItem(RAIL_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-    } catch (_) {}
-    return { likedReels: {}, savedReels: {}, followedHandles: {}, likedComments: {}, commentsByReel: {}, customReels: [] };
+    const cached = getReelSocialCache();
+    return {
+      likedReels: cached.likedReels || {},
+      savedReels: cached.savedReels || {},
+      followedHandles: cached.followedHandles || {},
+      likedComments: cached.likedComments || {},
+      commentsByReel: cached.commentsByReel || {},
+      customReels: cached.customReels || []
+    };
   }
 
   let socialState = loadSocialState();
   function saveSocialState() {
-    try {
-      // Avoid storing huge blob URLs in localStorage
-      const safe = {
-        ...socialState,
-        customReels: (socialState.customReels || []).filter(r => !String(r.videoUrl || '').startsWith('blob:'))
-      };
-      localStorage.setItem(RAIL_STORAGE_KEY, JSON.stringify(safe));
-    } catch (_) {}
+    // No-op: social state is persisted via individual toggle functions to Supabase
   }
 
   // Session-only custom reels (supports temporary Blob URL uploads cleanly)
@@ -8230,6 +8129,7 @@ function setupAdminPortal() {
     const currently = Boolean(socialState.likedReels[reelId]);
     const next = forceLike ? true : !currently;
     socialState.likedReels[reelId] = next;
+    toggleReelLike(reelId, next);
     saveSocialState();
 
     const btn = document.querySelector(`[data-rail-like="${reelId}"]`);
@@ -8359,6 +8259,7 @@ function setupAdminPortal() {
           : Boolean((railCfg.reels || DEFAULT_REELS).find(r => r.handle === handle)?.following);
         const next = !current;
         socialState.followedHandles[handle] = next;
+        toggleReelFollow(handle, next);
         saveSocialState();
         app.querySelectorAll(`[data-rail-follow="${CSS.escape(handle)}"]`).forEach(el => {
           el.classList.toggle('is-following', next);
@@ -8380,6 +8281,7 @@ function setupAdminPortal() {
         const rid = saveBtn.getAttribute('data-rail-save');
         const next = !Boolean(socialState.savedReels[rid]);
         socialState.savedReels[rid] = next;
+        toggleReelSave(rid, next);
         saveSocialState();
         saveBtn.classList.toggle('is-saved', next);
         const svg = saveBtn.querySelector('svg');
@@ -9328,20 +9230,26 @@ function setupCafeAudio() {
 }
 
 // Initial apply on boot
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+// Initialize Supabase database before rendering, then apply config
+(async () => {
+  await initDatabase();
+  // After DB init, reload config from cache
+  activeConfig = getStoredAdminConfig();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      applyConfigToDOM(activeConfig);
+      setupAdminPortal();
+      setupCafeAudio();
+      if (window.location.hash === '#hand-rail-pro') {
+        window.OrbitGallery?.setView('rail', { skipHash: true });
+      }
+    });
+  } else {
     applyConfigToDOM(activeConfig);
     setupAdminPortal();
     setupCafeAudio();
     if (window.location.hash === '#hand-rail-pro') {
       window.OrbitGallery?.setView('rail', { skipHash: true });
     }
-  });
-} else {
-  applyConfigToDOM(activeConfig);
-  setupAdminPortal();
-  setupCafeAudio();
-  if (window.location.hash === '#hand-rail-pro') {
-    window.OrbitGallery?.setView('rail', { skipHash: true });
   }
-}
+})();
