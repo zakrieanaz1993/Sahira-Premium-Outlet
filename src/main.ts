@@ -6514,6 +6514,21 @@ function setupAdminPortal() {
     }
   }
 
+  function showPageMobileChrome(autoHideDelay = 4000) {
+    if (!document.body.classList.contains('is-page-view')) return;
+    document.body.classList.remove('is-page-chrome-hidden');
+    clearTimeout(window._pageChromeTimer);
+    if (!window.matchMedia('(max-width: 749px)').matches) return;
+    window._pageChromeTimer = setTimeout(() => {
+      if (!document.body.classList.contains('is-page-view')) return;
+      if (document.querySelector('.site-header [aria-expanded="true"]')) {
+        showPageMobileChrome(3000);
+        return;
+      }
+      document.body.classList.add('is-page-chrome-hidden');
+    }, autoHideDelay);
+  }
+
   function setView(view, options = {}) {
     const homeEl = document.getElementById('sahira-home');
     const runwayEl = document.querySelector('runway-section');
@@ -6534,6 +6549,13 @@ function setupAdminPortal() {
 
     document.body.classList.toggle('is-runway-view', isRunway);
     document.body.classList.toggle('is-rail-view', isRail);
+    document.body.classList.toggle('is-page-view', isHome || isOrbit);
+    if (isHome || isOrbit) {
+      requestAnimationFrame(() => showPageMobileChrome(900));
+    } else {
+      document.body.classList.remove('is-page-chrome-hidden');
+      clearTimeout(window._pageChromeTimer);
+    }
     if (!isRunway) {
       document.body.classList.remove('is-runway-chrome-hidden');
       clearTimeout(window._runwayChromeTimer);
@@ -7394,6 +7416,14 @@ function setupAdminPortal() {
       e.stopPropagation();
       document.getElementById('open-bag')?.click();
     });
+    document.querySelector('[data-page-show-chrome]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      showPageMobileChrome(4500);
+    });
+    document.querySelector('[data-page-open-bag]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      document.getElementById('open-bag')?.click();
+    });
     document.querySelector('[data-rail-show-chrome]')?.addEventListener('click', e => {
       e.stopPropagation();
       showRailMobileChrome(4500);
@@ -7408,6 +7438,9 @@ function setupAdminPortal() {
       }
       if (document.body.classList.contains('is-rail-view') && !document.body.classList.contains('is-rail-chrome-hidden')) {
         showRailMobileChrome(5000);
+      }
+      if (document.body.classList.contains('is-page-view') && !document.body.classList.contains('is-page-chrome-hidden')) {
+        showPageMobileChrome(5000);
       }
     }, { passive: true });
     const railAppEl = document.getElementById('hand-rail-pro');
