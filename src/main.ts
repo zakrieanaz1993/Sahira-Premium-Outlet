@@ -6533,9 +6533,14 @@ function setupAdminPortal() {
     if (railEl) railEl.hidden = !isRail;
 
     document.body.classList.toggle('is-runway-view', isRunway);
+    document.body.classList.toggle('is-rail-view', isRail);
     if (!isRunway) {
       document.body.classList.remove('is-runway-chrome-hidden');
       clearTimeout(window._runwayChromeTimer);
+    }
+    if (!isRail) {
+      document.body.classList.remove('is-rail-chrome-hidden');
+      clearTimeout(window._railChromeTimer);
     }
 
     document.querySelectorAll('.site-header nav a[data-nav-view]').forEach(link => {
@@ -6576,6 +6581,20 @@ function setupAdminPortal() {
       if (window.HandRailPro && typeof window.HandRailPro.activate === 'function') {
         window.HandRailPro.activate();
       }
+      const scheduleRailHide = (delayMs = 1100) => {
+        clearTimeout(window._railChromeTimer);
+        if (!window.matchMedia('(max-width: 749px)').matches) return;
+        window._railChromeTimer = setTimeout(() => {
+          if (!document.body.classList.contains('is-rail-view')) return;
+          if (document.querySelector('.site-header [aria-expanded="true"]')) {
+            scheduleRailHide(2500);
+            return;
+          }
+          document.body.classList.add('is-rail-chrome-hidden');
+        }, delayMs);
+      };
+      document.body.classList.remove('is-rail-chrome-hidden');
+      requestAnimationFrame(() => scheduleRailHide(900));
     } else {
       if (!options.skipHash && window.location.hash !== '#runway') {
         try { history.replaceState(null, '', '#runway'); } catch (_) { window.location.hash = 'runway'; }
@@ -7353,6 +7372,31 @@ function setupAdminPortal() {
       }
     };
 
+    const showRailMobileChrome = (autoHideDelay = 4000) => {
+      if (!document.body.classList.contains('is-rail-view')) return;
+      document.body.classList.remove('is-rail-chrome-hidden');
+      clearTimeout(window._railChromeTimer);
+      if (window.matchMedia('(max-width: 749px)').matches) {
+        window._railChromeTimer = setTimeout(() => {
+          if (!document.body.classList.contains('is-rail-view')) return;
+          if (document.querySelector('.site-header [aria-expanded="true"]')) {
+            showRailMobileChrome(3000);
+            return;
+          }
+          document.body.classList.add('is-rail-chrome-hidden');
+        }, autoHideDelay);
+      }
+    };
+
+    const hideRailMobileChrome = () => {
+      if (!document.body.classList.contains('is-rail-view')) return;
+      if (!window.matchMedia('(max-width: 749px)').matches) return;
+      clearTimeout(window._railChromeTimer);
+      if (!document.body.classList.contains('is-rail-chrome-hidden')) {
+        document.body.classList.add('is-rail-chrome-hidden');
+      }
+    };
+
     document.querySelector('[data-runway-show-chrome]')?.addEventListener('click', e => {
       e.stopPropagation();
       showRunwayMobileChrome(4500);
@@ -7361,15 +7405,46 @@ function setupAdminPortal() {
       e.stopPropagation();
       document.getElementById('open-bag')?.click();
     });
+    document.querySelector('[data-rail-show-chrome]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      showRailMobileChrome(4500);
+    });
+    document.querySelector('[data-rail-open-bag]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      document.getElementById('open-bag')?.click();
+    });
     document.querySelector('.site-header')?.addEventListener('pointerdown', () => {
       if (document.body.classList.contains('is-runway-view') && !document.body.classList.contains('is-runway-chrome-hidden')) {
         showRunwayMobileChrome(5000);
+      }
+      if (document.body.classList.contains('is-rail-view') && !document.body.classList.contains('is-rail-chrome-hidden')) {
+        showRailMobileChrome(5000);
       }
     }, { passive: true });
     const runwayElRef = document.querySelector('runway-section');
     runwayElRef?.addEventListener('pointerdown', e => {
       if (e.target.closest('#runway-mobile-topbar')) return;
       hideRunwayMobileChrome();
+    }, { passive: true });
+    const railAppEl = document.getElementById('hand-rail-pro');
+    railAppEl?.addEventListener('pointerdown', e => {
+      if (e.target.closest('#rail-mobile-topbar')) return;
+      hideRailMobileChrome();
+    }, { passive: true });
+
+    window.showRailMobileChrome = showRailMobileChrome;
+    window.hideRailMobileChrome = hideRailMobileChrome;
+
+    const railFeedEl = document.getElementById('rail-feed');
+    let lastFeedScrollY = 0;
+    railFeedEl?.addEventListener('scroll', () => {
+      if (!document.body.classList.contains('is-rail-view')) return;
+      if (!window.matchMedia('(max-width: 749px)').matches) return;
+      const y = railFeedEl.scrollTop;
+      if (y < lastFeedScrollY - 4) {
+        window.showRailMobileChrome?.(4000);
+      }
+      lastFeedScrollY = y;
     }, { passive: true });
 
     window.addEventListener('hashchange', syncFromHash);
