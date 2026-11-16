@@ -6746,7 +6746,7 @@ function setupAdminPortal() {
             <span class="home-stage-bundle">Bundle ${money(bundleSum)}</span>
           </div>
           <div class="home-stage-visual" data-orbit-inspect-look="${heroLookIdx}" role="button" tabindex="0" aria-label="Inspect Look ${heroLookIdx + 1}: ${esc(activeLook.name)}">
-            <div class="home-stage-figure">
+            <div class="home-stage-figure${heroLookIdx === 2 ? ' is-look-03' : ''}">
               <span class="home-stage-shadow" aria-hidden="true"></span>
               <img src="${esc(activeLook.src)}" srcset="${esc(activeLook.srcset || activeLook.src)}" sizes="(min-width: 1000px) 460px, 320px" alt="${esc(activeLook.name)}">
               <div class="rw__pins" style="display:block!important;">
@@ -7068,7 +7068,7 @@ function setupAdminPortal() {
             <span>${pairedProducts.length} PIECES</span>
           </div>
           <div class="orbit-look-stage" data-orbit-inspect-look="${idx}" role="button" tabindex="0" aria-label="Inspect Look ${idx + 1}: ${esc(look.name)}">
-            <div class="orbit-look-figure">
+            <div class="orbit-look-figure${idx === 2 ? ' is-look-03' : ''}">
               <span class="orbit-look-shadow" aria-hidden="true"></span>
               <img src="${esc(look.src)}" srcset="${esc(look.srcset || look.src)}" sizes="(min-width: 1100px) 360px, 280px" alt="${esc(look.name)}" loading="lazy" decoding="async">
             </div>
