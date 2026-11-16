@@ -6533,14 +6533,9 @@ function setupAdminPortal() {
     if (railEl) railEl.hidden = !isRail;
 
     document.body.classList.toggle('is-runway-view', isRunway);
-    document.body.classList.toggle('is-rail-view', isRail);
     if (!isRunway) {
       document.body.classList.remove('is-runway-chrome-hidden');
       clearTimeout(window._runwayChromeTimer);
-    }
-    if (!isRail) {
-      document.body.classList.remove('is-rail-chrome-hidden');
-      clearTimeout(window._railChromeTimer);
     }
 
     document.querySelectorAll('.site-header nav a[data-nav-view]').forEach(link => {
@@ -6578,13 +6573,6 @@ function setupAdminPortal() {
         try { history.replaceState(null, '', '#hand-rail-pro'); } catch (_) { window.location.hash = 'hand-rail-pro'; }
       }
       window.scrollTo({ top: 0, behavior: 'auto' });
-      document.body.classList.remove('is-rail-chrome-hidden');
-      clearTimeout(window._railChromeTimer);
-      if (window.matchMedia('(max-width: 749px)').matches) {
-        window._railChromeTimer = setTimeout(() => {
-          if (document.body.classList.contains('is-rail-view')) document.body.classList.add('is-rail-chrome-hidden');
-        }, 900);
-      }
       if (window.HandRailPro && typeof window.HandRailPro.activate === 'function') {
         window.HandRailPro.activate();
       }
@@ -7377,18 +7365,6 @@ function setupAdminPortal() {
       if (document.body.classList.contains('is-runway-view') && !document.body.classList.contains('is-runway-chrome-hidden')) {
         showRunwayMobileChrome(5000);
       }
-      if (document.body.classList.contains('is-rail-view')) {
-        document.body.classList.remove('is-rail-chrome-hidden');
-        clearTimeout(window._railChromeTimer);
-      }
-    }, { passive: true });
-    document.getElementById('hand-rail-pro')?.addEventListener('pointerdown', e => {
-      if (!window.matchMedia('(max-width: 749px)').matches || e.target.closest('.rail-drawer')) return;
-      document.body.classList.remove('is-rail-chrome-hidden');
-      clearTimeout(window._railChromeTimer);
-      window._railChromeTimer = setTimeout(() => {
-        if (document.body.classList.contains('is-rail-view')) document.body.classList.add('is-rail-chrome-hidden');
-      }, 3500);
     }, { passive: true });
     const runwayElRef = document.querySelector('runway-section');
     runwayElRef?.addEventListener('pointerdown', e => {
