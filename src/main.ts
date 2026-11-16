@@ -7361,17 +7361,6 @@ function setupAdminPortal() {
       }
     };
 
-    const hideRunwayMobileChrome = () => {
-      if (!document.body.classList.contains('is-runway-view')) return;
-      if (!window.matchMedia('(max-width: 749px)').matches) return;
-      clearTimeout(window._runwayChromeTimer);
-      if (!document.body.classList.contains('is-runway-chrome-hidden')) {
-        document.body.classList.add('is-runway-chrome-hidden');
-        const rw = document.querySelector('runway-section');
-        setTimeout(() => { if (rw && typeof rw.measure === 'function') rw.measure(); }, 320);
-      }
-    };
-
     const showRailMobileChrome = (autoHideDelay = 4000) => {
       if (!document.body.classList.contains('is-rail-view')) return;
       document.body.classList.remove('is-rail-chrome-hidden');
@@ -7420,11 +7409,6 @@ function setupAdminPortal() {
       if (document.body.classList.contains('is-rail-view') && !document.body.classList.contains('is-rail-chrome-hidden')) {
         showRailMobileChrome(5000);
       }
-    }, { passive: true });
-    const runwayElRef = document.querySelector('runway-section');
-    runwayElRef?.addEventListener('pointerdown', e => {
-      if (e.target.closest('#runway-mobile-topbar')) return;
-      hideRunwayMobileChrome();
     }, { passive: true });
     const railAppEl = document.getElementById('hand-rail-pro');
     railAppEl?.addEventListener('pointerdown', e => {
