@@ -561,9 +561,18 @@ window.RunwayBag = (() => {
     const known = baseVariants[it.id] || {};
     const variants = sizes.map(sz => ({ id: known[sz] || hashVarId(String(it.id) + '::' + sz), a: avail, o: [String(sz)] }));
     const basePrice = Math.max(0, Number(it.price) || 0);
-    const discount = Math.min(95, Math.max(0, Math.round(Number(it.discount) || 0)));
-    const finalPrice = discount > 0 ? Number((basePrice * (1 - discount / 100)).toFixed(2)) : basePrice;
-    return { id: String(it.id), name: String(it.name || 'Item'), type: String(it.type === 'Sahira Studio' ? 'Sahira Premium Outlet' : (it.type || 'Sahira Premium Outlet')), price: finalPrice, originalPrice: basePrice, discount, image: String(it.image || ''), sizes, variants, url: String(it.url || '') };
+    const clamp = d => Math.min(95, Math.max(0, Math.round(Number(d) || 0)));
+    const offerEnabled = Boolean(it.offerEnabled);
+    const offerEndsAt = it.offerEndsAt || null;
+    const offerLive = () => offerEnabled && Boolean(offerEndsAt) && Date.parse(offerEndsAt) > Date.now();
+    const discountNow = () => offerEnabled ? (offerLive() ? clamp(it.offerDiscount) : 0) : clamp(it.discount);
+    const item = { id: String(it.id), name: String(it.name || 'Item'), type: String(it.type === 'Sahira Studio' ? 'Sahira Premium Outlet' : (it.type || 'Sahira Premium Outlet')), originalPrice: basePrice, image: String(it.image || ''), sizes, variants, url: String(it.url || ''), offerEndsAt, offerLabel: String(it.offerLabel || (it.offerType === 'clearance' ? 'Clearance' : 'Special Offer')) };
+    Object.defineProperties(item, {
+      discount: { enumerable: true, get: discountNow },
+      price: { enumerable: true, get: () => { const d = discountNow(); return d > 0 ? Number((basePrice * (1 - d / 100)).toFixed(2)) : basePrice; } },
+      offerActive: { enumerable: true, get: offerLive }
+    });
+    return item;
   };
   const catalogData = {"source": "sahira-studio", "looks": [], "items": []};
   try {
@@ -653,6 +662,13 @@ window.RunwayBag = (() => {
     window.SahiraAuth?.open?.('login');
   });
 
+  let bagOfferTimer = null;
+  const formatBagCountdown = iso => {
+    const total = Math.max(0, Math.floor((Date.parse(iso || '') - Date.now()) / 1000));
+    const d = Math.floor(total / 86400);
+    const hms = [Math.floor(total / 3600) % 24, Math.floor(total / 60) % 60, total % 60].map(n => String(n).padStart(2, '0')).join(':');
+    return d > 0 ? `${d}h ${hms}` : hms;
+  };
   async function render() {
     sweepLocks(true);
     const catalog = await catalogPromise;
@@ -670,6 +686,7 @@ window.RunwayBag = (() => {
     let lockedTotal = 0;
     let lockedUnits = 0;
     let lockedCount = 0;
+    let hasLiveOffer = false;
     if (toolbar) toolbar.hidden = !entries.length;
     if (!entries.length) {
       if (receiptEl) receiptEl.hidden = true;
@@ -725,6 +742,18 @@ window.RunwayBag = (() => {
         ttl.textContent = window.SahiraLockOrders?.formatRemainingLock?.(entry.lockedAt) || 'Baki 24j';
         lockWrap.append(ttl);
       }
+      if (product.offerActive) {
+        const offerTag = document.createElement('div');
+        offerTag.className = 'bag-offer-tag';
+        const offerName = document.createElement('strong');
+        offerName.textContent = `${product.offerLabel} -${product.discount}%`;
+        const offerTime = document.createElement('span');
+        offerTime.setAttribute('data-bag-offer-countdown', product.offerEndsAt);
+        offerTime.textContent = `Tamat dalam ${formatBagCountdown(product.offerEndsAt)}`;
+        offerTag.append(offerName, offerTime);
+        details.append(offerTag);
+        hasLiveOffer = true;
+      }
       details.append(lockWrap);
       const remove = document.createElement('button');
       remove.textContent = '×';
@@ -746,6 +775,18 @@ window.RunwayBag = (() => {
       if (!entries.length) totalEl.textContent = '';
       else if (lockedCount > 0) totalEl.textContent = `Jumlah Di-Lock (${lockedUnits} unit): ${money(lockedTotal)} · Anggaran keseluruhan ${money(total)}`;
       else totalEl.textContent = `Anggaran keseluruhan ${money(total)} · Sila tick Lock Item`;
+    }
+    clearInterval(bagOfferTimer);
+    if (hasLiveOffer) {
+      bagOfferTimer = setInterval(() => {
+        let ended = false;
+        list.querySelectorAll('[data-bag-offer-countdown]').forEach(el => {
+          const iso = el.getAttribute('data-bag-offer-countdown') || '';
+          if (Date.parse(iso) > Date.now()) el.textContent = `Tamat dalam ${formatBagCountdown(iso)}`;
+          else ended = true;
+        });
+        if (ended) render();
+      }, 1000);
     }
     if (exportBtn) exportBtn.disabled = !entries.length;
     if (exportLabel) {

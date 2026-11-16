@@ -9107,3 +9107,8 @@ dialog.auth-modal::backdrop {
   .admin-offer-filter { width: 100%; }
   .admin-offer-filter-btn { flex: 1; padding: 8px 6px; }
 }
+
+.bag-offer-tag { display: inline-flex; align-items: stretch; margin: 2px 0 8px; border: 1px solid #b42318; font-size: 11px; line-height: 1.3; animation: bagOfferIn .3s ease-out; }
+.bag-offer-tag strong { padding: 4px 8px; background: #b42318; color: #fff; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.bag-offer-tag span { padding: 4px 8px; background: #fdecea; color: #8f2118; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes bagOfferIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
