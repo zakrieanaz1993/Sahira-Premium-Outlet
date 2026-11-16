@@ -7441,10 +7441,12 @@ function setupAdminPortal() {
       if (!document.body.classList.contains('is-rail-view')) return;
       if (!window.matchMedia('(max-width: 749px)').matches) return;
       const y = railFeedEl.scrollTop;
-      if (y < lastFeedScrollY - 4) {
+      if (y < lastFeedScrollY - 32) {
         window.showRailMobileChrome?.(4000);
+        lastFeedScrollY = y;
+      } else if (y > lastFeedScrollY) {
+        lastFeedScrollY = y;
       }
-      lastFeedScrollY = y;
     }, { passive: true });
 
     window.addEventListener('hashchange', syncFromHash);

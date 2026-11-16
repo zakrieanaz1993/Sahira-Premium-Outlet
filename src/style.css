@@ -8682,11 +8682,15 @@ dialog.auth-modal::backdrop {
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 26px -18px rgb(0 0 0 / 0.24);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
     transition: transform 0.34s cubic-bezier(.16, 1, .3, 1), opacity 0.26s ease;
   }
 
   body.is-rail-view.is-rail-chrome-hidden .site-header {
-    transform: translateY(-108%);
+    transform: translate3d(0, -150px, 0);
     opacity: 0;
     pointer-events: none;
   }
@@ -8699,19 +8703,26 @@ dialog.auth-modal::backdrop {
 
   body.is-rail-view .rail-topbar {
     position: absolute;
-    inset: 0 0 auto;
+    top: 91px;
+    left: 0;
+    right: 0;
+    z-index: 70;
     box-sizing: border-box;
-    height: 112px;
-    padding-top: calc(96px + env(safe-area-inset-top, 0px));
-    overflow: hidden;
-    transform: translateY(0);
-    opacity: 1;
-    transition: transform 0.36s cubic-bezier(.16, 1, .3, 1), opacity 0.24s ease;
-    will-change: transform, opacity;
+    height: 48px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #ecebe8;
+    overflow-x: auto;
+    overflow-y: hidden;
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transition: transform 0.34s cubic-bezier(.16, 1, .3, 1), opacity 0.26s ease;
+    will-change: transform;
   }
 
   body.is-rail-view.is-rail-chrome-hidden .rail-topbar {
-    transform: translateY(-100%);
+    transform: translate3d(0, -150px, 0);
     opacity: 0;
     pointer-events: none;
   }
