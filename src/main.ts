@@ -117,6 +117,8 @@ window.SahiraCutoutFeet = (() => {
       const keep = trimTop ? 1 - clampVal((m.topY || 0) - 0.03, 0, 0.4) : 1;
       el.style.setProperty('--figure-ar', (Number(m.ar) / keep).toFixed(4));
       el.style.setProperty('--foot-y', (Number(m.footY) / keep).toFixed(4));
+      el.style.setProperty('--trim-shift', ((1 - keep) / keep).toFixed(4));
+      el.style.setProperty('--trim-full', (1 / keep).toFixed(4));
       el.style.setProperty('--foot-x', m.footX);
       el.style.setProperty('--foot-w', m.footW);
     };
@@ -6757,7 +6759,7 @@ function setupAdminPortal() {
             <span class="home-stage-bundle">Bundle ${money(bundleSum)}</span>
           </div>
           <div class="home-stage-visual" data-orbit-inspect-look="${heroLookIdx}" role="button" tabindex="0" aria-label="Inspect Look ${heroLookIdx + 1}: ${esc(activeLook.name)}">
-            <div class="home-stage-figure${heroLookIdx === 2 ? ' is-look-03' : ''}">
+            <div class="home-stage-figure">
               <span class="home-stage-shadow" aria-hidden="true"></span>
               <img src="${esc(activeLook.src)}" srcset="${esc(activeLook.srcset || activeLook.src)}" sizes="(min-width: 1000px) 460px, 320px" alt="${esc(activeLook.name)}">
               <div class="rw__pins" style="display:block!important;">
@@ -6781,7 +6783,7 @@ function setupAdminPortal() {
           </div>
         </div>
       `;
-      window.SahiraCutoutFeet?.applyToFigure(heroStage.querySelector('.home-stage-figure'), activeLook.src);
+      window.SahiraCutoutFeet?.applyToFigure(heroStage.querySelector('.home-stage-figure'), activeLook.src, true);
     }
 
     looksGrid.replaceChildren();

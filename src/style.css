@@ -6303,9 +6303,14 @@ main,
   display: block;
 }
 
-.home-stage-figure.is-look-03 {
-  transform: scale(1.24);
-  transform-origin: 50% 100%;
+.home-stage-figure img {
+  object-fit: cover !important;
+}
+
+.home-stage-figure .rw__pins {
+  inset: auto 0 auto 0;
+  top: calc(var(--trim-shift, 0) * -100%);
+  height: calc(var(--trim-full, 1) * 100%);
 }
 
 .home-stage-shadow {
