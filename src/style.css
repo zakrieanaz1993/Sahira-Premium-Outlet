@@ -9028,35 +9028,7 @@ dialog.auth-modal::backdrop {
   line-height: 1.3;
   text-transform: uppercase;
 }
-.admin-offer-box {
-  margin: 16px 0;
-  padding: 14px;
-  border: 1px solid #e2c5bd;
-  background: #fff8f6;
-}
-.admin-offer-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  color: #8f2118;
-  font-size: 12px;
-}
-.admin-offer-head span {
-  color: #6b625c;
-  font-size: 11px;
-}
-.admin-check-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  font-size: 12px;
-  font-weight: 700;
-}
 @media (max-width: 640px) {
-  .admin-offer-head { flex-direction: column; gap: 4px; }
-  .admin-offer-box .admin-prod-top-row { flex-direction: column; }
   .sahira-offer-countdown { font-size: 9px; }
 }
 
@@ -9076,3 +9048,62 @@ dialog.auth-modal::backdrop {
 .admin-offer-row strong, .admin-offer-row span { display: block; }
 .admin-offer-row strong { font-size: 13px; }
 .admin-offer-row span { margin-top: 4px; color: #8f2118; font-size: 11px; }
+
+/* Offer & Promo admin section */
+.admin-offer-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 16px; }
+.admin-offer-toolbar #admin-offer-search { flex: 1 1 240px; max-width: 360px; }
+.admin-offer-filter { display: inline-flex; border: 1px solid #ddd6cf; background: #fff; }
+.admin-offer-filter-btn { padding: 8px 14px; border: 0; background: transparent; color: #4a4540; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .2s, color .2s; }
+.admin-offer-filter-btn + .admin-offer-filter-btn { border-left: 1px solid #ddd6cf; }
+.admin-offer-filter-btn:hover { background: #f4f1ed; }
+.admin-offer-filter-btn.active { background: #111; color: #fff; }
+.admin-offer-manager { display: grid; gap: 12px; }
+.admin-offer-card { display: grid; grid-template-columns: 72px 1fr; gap: 16px; padding: 16px; border: 1px solid #e7e2dc; background: #fff; transition: border-color .25s, box-shadow .25s, background .25s; }
+.admin-offer-card:hover { box-shadow: 0 6px 20px rgba(17, 17, 17, .06); }
+.admin-offer-card.is-active { border-color: #e9b4aa; background: #fffaf8; box-shadow: inset 3px 0 0 #b42318; }
+.admin-offer-card.is-expired { background: #faf9f7; }
+.admin-offer-card > img { width: 72px; height: 88px; object-fit: contain; background: #f4f1ed; }
+.admin-offer-card-body { min-width: 0; }
+.admin-offer-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.admin-offer-card-head strong { display: block; font-size: 14px; line-height: 1.3; color: #111; }
+.admin-offer-preview { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 6px; font-size: 12px; }
+.admin-offer-preview s { color: #8a847d; }
+.admin-offer-preview strong { display: inline; color: #b42318; font-size: 14px; }
+.admin-offer-preview em { padding: 2px 6px; background: #b42318; color: #fff; font-style: normal; font-size: 10px; font-weight: 700; }
+.admin-offer-preview.is-muted { color: #8a847d; }
+.admin-offer-card-side { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.admin-offer-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #e3ded8; color: #6b655f; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.admin-offer-status.is-active { border-color: #f1c6be; background: #fdecea; color: #8f2118; }
+.admin-offer-status.is-active i { width: 6px; height: 6px; border-radius: 50%; background: #d92d20; animation: adminOfferPulse 1.4s ease-in-out infinite; }
+.admin-offer-status.is-expired { background: #f2f0ed; color: #6b655f; }
+.admin-offer-status.is-pending { border-color: #f5d9a8; background: #fef6e7; color: #8a5a00; }
+@keyframes adminOfferPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+.admin-offer-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 700; color: #4a4540; }
+.admin-offer-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.admin-offer-switch span { position: relative; width: 36px; height: 20px; border-radius: 999px; background: #d6d0c9; transition: background .2s; }
+.admin-offer-switch span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s; }
+.admin-offer-switch input:checked + span { background: #b42318; }
+.admin-offer-switch input:checked + span::after { transform: translateX(16px); }
+.admin-offer-switch input:focus-visible + span { outline: 2px solid #111; outline-offset: 2px; }
+.admin-offer-switch em { font-style: normal; min-width: 32px; }
+.admin-offer-fields { display: grid; grid-template-columns: 1fr 1.2fr .8fr 1.3fr; gap: 12px; margin-top: 16px; }
+.admin-offer-fields .admin-form-group > span { display: block; margin-bottom: 6px; color: #6b655f; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.admin-offer-card:not(.is-on) .admin-offer-fields { opacity: .6; }
+.admin-offer-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.admin-offer-quick > span { color: #6b655f; font-size: 11px; }
+.admin-offer-chip { padding: 6px 10px; border: 1px solid #ddd6cf; background: #fff; color: #222; font-size: 11px; font-weight: 600; cursor: pointer; transition: border-color .2s, background .2s, transform .15s; }
+.admin-offer-chip:hover { border-color: #111; background: #f4f1ed; }
+.admin-offer-chip:active { transform: scale(.96); }
+.admin-offer-chip.is-danger { border-color: #f1c6be; color: #b42318; }
+.admin-offer-chip.is-danger:hover { background: #fdecea; border-color: #b42318; }
+@media (max-width: 860px) {
+  .admin-offer-fields { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .admin-offer-card { grid-template-columns: 56px 1fr; gap: 12px; padding: 12px; }
+  .admin-offer-card > img { width: 56px; height: 70px; }
+  .admin-offer-card-head { flex-direction: column; gap: 8px; }
+  .admin-offer-fields { grid-template-columns: 1fr; }
+  .admin-offer-filter { width: 100%; }
+  .admin-offer-filter-btn { flex: 1; padding: 8px 6px; }
+}

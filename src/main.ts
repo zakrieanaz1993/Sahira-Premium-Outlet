@@ -2874,6 +2874,7 @@ function setupAdminPortal() {
     videos: { title: 'Hand Rail Pro Video', desc: 'Muat naik klip 9:16 MP4/WebM dan pautkan ke mana-mana Outfit untuk butang Shop Look.' },
     orders: { title: 'Lock Item & Bayaran', desc: 'Pantau item yang telah di-lock pelanggan melalui WhatsApp & kemaskini status Complete Payment.' },
     customers: { title: 'Pelanggan & Analisis', desc: 'Pantau detail pelanggan, kadar bayaran, item kegemaran & buat follow-up WhatsApp.' },
+    offers: { title: 'Offer & Promo Countdown', desc: 'Pilih item, tetapkan jenis promo, diskaun & masa tamat. Harga kembali asal secara automatik bila countdown habis.' },
     sales: { title: 'Sales & Target Monitor', desc: 'Pantau jualan disahkan, pipeline lock, pecahan kategori & pencapaian target harian/bulanan.' },
     settings: { title: 'Sandaran & Akses', desc: 'Salin pautan akses admin, eksport/import JSON atau pulihkan data asal.' }
   };
@@ -2931,6 +2932,8 @@ function setupAdminPortal() {
     const cOrders = document.querySelector('[data-admin-count="orders"]');
     const cCusts = document.querySelector('[data-admin-count="customers"]');
     const cSales = document.querySelector('[data-admin-count="sales"]');
+    const cOffers = document.querySelector('[data-admin-count="offers"]');
+    if (cOffers) cOffers.textContent = String(workingConfig.items.filter(isOfferActive).length).padStart(2, '0');
     if (cLooks) cLooks.textContent = String(workingConfig.looks.length).padStart(2, '0');
     if (cProds) cProds.textContent = String(workingConfig.items.length).padStart(2, '0');
     if (cVideos) cVideos.textContent = String(workingConfig.reels.length).padStart(2, '0');
@@ -3049,6 +3052,7 @@ function setupAdminPortal() {
     if (activeAdminTab === 'orders') renderAdminOrders();
     if (activeAdminTab === 'customers') renderAdminCustomers();
     if (activeAdminTab === 'sales') renderAdminSales();
+    if (activeAdminTab === 'offers') renderAdminOffers();
   }
 
   function renderAdminOverview() {
@@ -3081,7 +3085,7 @@ function setupAdminPortal() {
       offersList.innerHTML = offerItems.length ? offerItems.map(it => {
         const active = isOfferActive(it);
         const ends = it.offerEndsAt ? formatOrderDate(it.offerEndsAt) : '-';
-        return `<div class="admin-offer-row ${active ? 'is-active' : 'is-expired'}"><img src="${esc(it.image)}" alt="${esc(it.name)}"><div><strong>${esc(it.name)}</strong><span>${active ? `${esc(it.offerLabel || 'Special Offer')} · -${clampDiscount(it.offerDiscount)}% · Tamat ${esc(ends)}` : 'Offer tamat · harga asal digunakan'}</span></div><button type="button" class="admin-btn secondary admin-btn-xs" data-admin-jump="products">Edit</button></div>`;
+        return `<div class="admin-offer-row ${active ? 'is-active' : 'is-expired'}"><img src="${esc(it.image)}" alt="${esc(it.name)}"><div><strong>${esc(it.name)}</strong><span>${active ? `${esc(it.offerLabel || 'Special Offer')} · -${clampDiscount(it.offerDiscount)}% · Tamat ${esc(ends)}` : 'Offer tamat · harga asal digunakan'}</span></div><button type="button" class="admin-btn secondary admin-btn-xs" data-admin-jump="offers">Edit</button></div>`;
       }).join('') : '<div class="admin-empty-box">Belum ada special offer aktif. Buka Urus Offer Item untuk pilih item dan tetapkan countdown.</div>';
     }
 
@@ -3779,9 +3783,10 @@ function setupAdminPortal() {
   }
 
   function formatSalePreviewText(item) {
+    if (isOfferActive(item)) return `Offer aktif: ${money(getSalePrice(item))} (-${clampDiscount(item.offerDiscount)}%)`;
     const disc = clampDiscount(item?.discount);
     if (disc <= 0) return 'Tiada diskaun';
-    return `Harga jualan: ${money(getSalePrice(item))} (-${disc}%)`;
+    return `Harga jualan: ${money(Number(((Number(item.price) || 0) * (1 - disc / 100)).toFixed(2)))} (-${disc}%)`;
   }
 
   function syncProdCardSummary(idx) {
@@ -3944,22 +3949,6 @@ function setupAdminPortal() {
                   ${buildSizeChipsHtml(activeSizes, cat, 'data-size-toggle', i)}
                 </div>
                 <input type="text" class="admin-input-text" data-prod-field="sizes" data-idx="${i}" value="${esc(activeSizes.join(', '))}" placeholder="Contoh: S, M, L atau Free Size">
-              </div>
-            </div>
-            <div class="admin-offer-box">
-              <div class="admin-offer-head"><strong>Special Offer / Promo Urgency</strong><span>Auto kembali ke harga asal selepas tamat</span></div>
-              <div class="admin-prod-top-row">
-                <label class="admin-check-label"><input type="checkbox" data-prod-field="offerEnabled" data-idx="${i}" ${item.offerEnabled ? 'checked' : ''}> Aktifkan offer</label>
-                <select class="admin-input-text" data-prod-field="offerType" data-idx="${i}">
-                  <option value="flash_sale" ${item.offerType === 'flash_sale' ? 'selected' : ''}>Flash Sale</option>
-                  <option value="clearance" ${item.offerType === 'clearance' ? 'selected' : ''}>Clearance</option>
-                  <option value="member" ${item.offerType === 'member' ? 'selected' : ''}>Member Offer</option>
-                </select>
-                <input type="text" class="admin-input-text" data-prod-field="offerLabel" data-idx="${i}" value="${esc(item.offerLabel || '')}" placeholder="Label contoh: BAKI 2 UNIT">
-              </div>
-              <div class="admin-prod-top-row">
-                <label class="admin-form-group"><span>Promo diskaun (%)</span><input type="number" min="0" max="95" step="1" class="admin-input-text" data-prod-field="offerDiscount" data-idx="${i}" value="${Number(item.offerDiscount || 0)}"></label>
-                <label class="admin-form-group"><span>Tamat pada</span><input type="datetime-local" class="admin-input-text" data-prod-field="offerEndsAt" data-idx="${i}" value="${formatOfferEndForInput(item.offerEndsAt)}"></label>
               </div>
             </div>
             <div class="admin-form-row-2">
@@ -4750,6 +4739,128 @@ function setupAdminPortal() {
     };
   }
 
+  let offerFilter = 'all';
+  let offerSearch = '';
+  const OFFER_TYPE_LABELS = { flash_sale: 'Flash Sale', clearance: 'Clearance', member: 'Member Offer' };
+  const OFFER_QUICK = [['1j', 3600e3, '+1 Jam'], ['6j', 6 * 3600e3, '+6 Jam'], ['24j', 24 * 3600e3, '+24 Jam'], ['3h', 3 * 86400e3, '+3 Hari'], ['7h', 7 * 86400e3, '+7 Hari']];
+  const offerStatus = it => isOfferActive(it) ? 'active' : (it.offerEnabled && it.offerEndsAt ? 'expired' : 'none');
+
+  function offerStatusHtml(it) {
+    const st = offerStatus(it);
+    if (st === 'active') return `<span class="admin-offer-status is-active"><i></i><span data-admin-offer-countdown="${esc(it.offerEndsAt)}">${formatCountdown(it.offerEndsAt)}</span></span>`;
+    if (st === 'expired') return '<span class="admin-offer-status is-expired">Tamat · harga asal</span>';
+    if (it.offerEnabled) return '<span class="admin-offer-status is-pending">Tetapkan masa tamat</span>';
+    return '<span class="admin-offer-status">Tiada offer</span>';
+  }
+
+  function offerPreviewHtml(it) {
+    const base = Math.max(0, Number(it.price) || 0);
+    const disc = clampDiscount(it.offerDiscount);
+    const sale = Number((base * (1 - disc / 100)).toFixed(2));
+    if (!disc) return `<span class="admin-offer-preview is-muted">${money(base)} · masukkan % promo</span>`;
+    return `<span class="admin-offer-preview"><s>${money(base)}</s><strong>${money(sale)}</strong><em>-${disc}%</em></span>`;
+  }
+
+  function renderAdminOfferStats() {
+    const el = document.getElementById('admin-offer-stats');
+    el?.classList.add('admin-kpi-grid');
+    if (!el) return;
+    const items = workingConfig.items;
+    const active = items.filter(isOfferActive);
+    const soon = active.filter(it => Date.parse(it.offerEndsAt) - Date.now() < 86400e3);
+    const expired = items.filter(it => offerStatus(it) === 'expired');
+    const avg = active.length ? Math.round(active.reduce((a, it) => a + clampDiscount(it.offerDiscount), 0) / active.length) : 0;
+    el.innerHTML = [
+      ['Offer Aktif', active.length, 'Sedang dipaparkan dengan countdown'],
+      ['Tamat < 24 Jam', soon.length, 'Paling tinggi urgency'],
+      ['Purata Diskaun', `${avg}%`, 'Untuk offer aktif'],
+      ['Sudah Tamat', expired.length, 'Harga kembali asal']
+    ].map(([k, v, d]) => `<div class="admin-kpi-card"><span class="admin-kpi-label">${k}</span><strong class="admin-kpi-value">${v}</strong><span class="admin-kpi-meta">${d}</span></div>`).join('');
+  }
+
+  function renderAdminOffers() {
+    renderAdminOfferStats();
+    const wrap = document.getElementById('admin-offer-manager');
+    if (!wrap) return;
+    dialog.querySelectorAll('[data-offer-filter]').forEach(b => b.classList.toggle('active', b.dataset.offerFilter === offerFilter));
+    const q = offerSearch.trim().toLowerCase();
+    const rows = workingConfig.items.map((it, i) => ({ it, i })).filter(({ it }) => {
+      if (offerFilter !== 'all' && offerStatus(it) !== offerFilter) return false;
+      return !q || `${it.name} ${it.type || ''}`.toLowerCase().includes(q);
+    });
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="admin-empty-box">Tiada item sepadan dengan carian atau tapisan ini.</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map(({ it, i }) => {
+      const st = offerStatus(it);
+      return `<article class="admin-offer-card is-${st}${it.offerEnabled ? ' is-on' : ''}" data-offer-card="${i}">
+        <img src="${esc(it.image)}" alt="${esc(it.name)}" loading="lazy">
+        <div class="admin-offer-card-body">
+          <div class="admin-offer-card-head">
+            <div>
+              <strong>${esc(it.name)}</strong>
+              <span data-offer-preview="${i}">${offerPreviewHtml(it)}</span>
+            </div>
+            <div class="admin-offer-card-side">
+              <span data-offer-status="${i}">${offerStatusHtml(it)}</span>
+              <label class="admin-offer-switch" title="Aktifkan offer">
+                <input type="checkbox" data-offer-field="offerEnabled" data-idx="${i}" ${it.offerEnabled ? 'checked' : ''}>
+                <span aria-hidden="true"></span><em>${it.offerEnabled ? 'Aktif' : 'Off'}</em>
+              </label>
+            </div>
+          </div>
+          <div class="admin-offer-fields">
+            <label class="admin-form-group"><span>Jenis Offer</span>
+              <select class="admin-input-text" data-offer-field="offerType" data-idx="${i}">
+                ${Object.entries(OFFER_TYPE_LABELS).map(([v, l]) => `<option value="${v}" ${it.offerType === v ? 'selected' : ''}>${l}</option>`).join('')}
+              </select>
+            </label>
+            <label class="admin-form-group"><span>Label Tag</span><input type="text" maxlength="24" class="admin-input-text" data-offer-field="offerLabel" data-idx="${i}" value="${esc(it.offerLabel || '')}" placeholder="Cth: BAKI 2 UNIT"></label>
+            <label class="admin-form-group"><span>Diskaun Promo (%)</span><input type="number" min="0" max="95" step="1" class="admin-input-text" data-offer-field="offerDiscount" data-idx="${i}" value="${clampDiscount(it.offerDiscount)}"></label>
+            <label class="admin-form-group"><span>Tamat Pada</span><input type="datetime-local" class="admin-input-text" data-offer-field="offerEndsAt" data-idx="${i}" value="${formatOfferEndForInput(it.offerEndsAt)}"></label>
+          </div>
+          <div class="admin-offer-quick">
+            <span>Countdown pantas:</span>
+            ${OFFER_QUICK.map(([k, , l]) => `<button type="button" class="admin-offer-chip" data-offer-quick="${k}" data-idx="${i}">${l}</button>`).join('')}
+            ${st === 'active' ? `<button type="button" class="admin-offer-chip is-danger" data-offer-stop="${i}">Tamatkan Sekarang</button>` : ''}
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  function refreshOfferCard(idx) {
+    const it = workingConfig.items[idx];
+    const card = dialog.querySelector(`[data-offer-card="${idx}"]`);
+    if (!it || !card) return;
+    const st = offerStatus(it);
+    card.className = `admin-offer-card is-${st}${it.offerEnabled ? ' is-on' : ''}`;
+    const statusEl = card.querySelector(`[data-offer-status="${idx}"]`);
+    const previewEl = card.querySelector(`[data-offer-preview="${idx}"]`);
+    if (statusEl) statusEl.innerHTML = offerStatusHtml(it);
+    if (previewEl) previewEl.innerHTML = offerPreviewHtml(it);
+    renderAdminOfferStats();
+    updateSidebarCounts();
+  }
+
+  function commitOfferChange(idx, rerender) {
+    setDirty(true);
+    if (rerender) { renderAdminOffers(); updateSidebarCounts(); }
+    else refreshOfferCard(idx);
+  }
+
+  setInterval(() => {
+    if (activeAdminTab !== 'offers' || !dialog.open) return;
+    let ended = false;
+    dialog.querySelectorAll('[data-admin-offer-countdown]').forEach(el => {
+      const iso = el.getAttribute('data-admin-offer-countdown') || '';
+      if (Date.parse(iso) > Date.now()) el.textContent = formatCountdown(iso);
+      else ended = true;
+    });
+    if (ended) { renderAdminOffers(); updateSidebarCounts(); }
+  }, 1000);
+
   function renderAdminSales() {
     updateSidebarCounts();
     const targets = getSalesTargets();
@@ -5075,6 +5186,36 @@ function setupAdminPortal() {
       if (act === 'new-look') { switchAdminTab('looks'); document.getElementById('admin-new-look-form').hidden = false; }
       if (act === 'new-product') { switchAdminTab('products'); document.getElementById('admin-new-prod-form').hidden = false; renderNewProdSizeChips(); }
       if (act === 'new-video') { switchAdminTab('videos'); document.getElementById('admin-new-video-form').hidden = false; }
+      return;
+    }
+
+    const offerFilterBtn = e.target.closest('[data-offer-filter]');
+    if (offerFilterBtn) { offerFilter = offerFilterBtn.dataset.offerFilter; renderAdminOffers(); return; }
+
+    const offerQuickBtn = e.target.closest('[data-offer-quick]');
+    if (offerQuickBtn) {
+      const idx = parseInt(offerQuickBtn.dataset.idx, 10);
+      const it = workingConfig.items[idx];
+      const preset = OFFER_QUICK.find(([k]) => k === offerQuickBtn.dataset.offerQuick);
+      if (it && preset) {
+        it.offerEnabled = true;
+        it.offerEndsAt = new Date(Date.now() + preset[1]).toISOString();
+        if (!clampDiscount(it.offerDiscount)) it.offerDiscount = 20;
+        commitOfferChange(idx, true);
+        notify(`${it.name}: countdown ${preset[2].replace('+', '')} bermula. Tekan Simpan & Terbit untuk paparkan.`);
+      }
+      return;
+    }
+
+    const offerStopBtn = e.target.closest('[data-offer-stop]');
+    if (offerStopBtn) {
+      const idx = parseInt(offerStopBtn.dataset.offerStop, 10);
+      const it = workingConfig.items[idx];
+      if (it) {
+        it.offerEnabled = false;
+        commitOfferChange(idx, true);
+        notify(`${it.name}: offer ditamatkan, harga kembali asal.`);
+      }
       return;
     }
 
@@ -5967,6 +6108,29 @@ function setupAdminPortal() {
       return;
     }
 
+    if (t.id === 'admin-offer-search') { offerSearch = t.value; renderAdminOffers(); return; }
+
+    if (t.dataset.offerField && t.dataset.offerField !== 'offerType') {
+      const idx = parseInt(t.dataset.idx, 10);
+      const it = workingConfig.items[idx];
+      if (!it) return;
+      const field = t.dataset.offerField;
+      if (field === 'offerEnabled') {
+        it.offerEnabled = Boolean(t.checked);
+        if (it.offerEnabled && !clampDiscount(it.offerDiscount)) it.offerDiscount = 20;
+        if (it.offerEnabled && !isOfferActive(it)) it.offerEndsAt = new Date(Date.now() + 86400e3).toISOString();
+        commitOfferChange(idx, true);
+        return;
+      }
+      if (field === 'offerDiscount') it.offerDiscount = clampDiscount(t.value);
+      else if (field === 'offerEndsAt') {
+        const d = t.value ? new Date(t.value) : null;
+        it.offerEndsAt = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
+      } else if (field === 'offerLabel') it.offerLabel = t.value.slice(0, 24);
+      commitOfferChange(idx, false);
+      return;
+    }
+
     if (t.dataset.prodField) {
       const idx = parseInt(t.dataset.idx, 10);
       const field = t.dataset.prodField;
@@ -5975,12 +6139,6 @@ function setupAdminPortal() {
       if (field === 'price') item.price = Math.max(0, parseFloat(t.value) || 0);
       else if (field === 'discount') {
         item.discount = clampDiscount(t.value);
-      } else if (field === 'offerEnabled') {
-        item.offerEnabled = Boolean(t.checked);
-      } else if (field === 'offerDiscount') {
-        item.offerDiscount = clampDiscount(t.value);
-      } else if (field === 'offerEndsAt') {
-        item.offerEndsAt = t.value ? new Date(t.value).toISOString() : null;
       } else if (field === 'stock') {
         item.stock = Math.max(0, parseInt(t.value, 10) || 0);
         dialog.querySelectorAll(`[data-stock-badge="${idx}"]`).forEach(badge => {
@@ -6073,11 +6231,11 @@ function setupAdminPortal() {
       return;
     }
 
-    if (t.dataset.prodField === 'offerType') {
+    if (t.dataset.offerField === 'offerType') {
       const idx = parseInt(t.dataset.idx, 10);
       if (workingConfig.items[idx]) {
         workingConfig.items[idx].offerType = t.value;
-        setDirty(true);
+        commitOfferChange(idx, false);
       }
       return;
     }

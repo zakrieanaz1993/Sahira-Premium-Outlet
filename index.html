@@ -2038,6 +2038,11 @@
           <span>Pelanggan &amp; Analisis</span>
           <span class="admin-nav-count" data-admin-count="customers">00</span>
         </button>
+        <button type="button" class="admin-nav-btn" data-admin-tab="offers" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+          <span>Offer &amp; Promo</span>
+          <span class="admin-nav-count" data-admin-count="offers">00</span>
+        </button>
         <button type="button" class="admin-nav-btn" data-admin-tab="sales" role="tab" aria-selected="false">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           <span>Sales &amp; Target</span>
@@ -2124,7 +2129,7 @@
                 <h3>Special Offer &amp; Countdown</h3>
                 <p>Pilih item, aktifkan jenis promo, tetapkan diskaun dan masa tamat. Selepas tamat, harga kembali asal automatik.</p>
               </div>
-              <button type="button" class="admin-btn primary admin-btn-sm" data-admin-jump="products">Urus Offer Item</button>
+              <button type="button" class="admin-btn primary admin-btn-sm" data-admin-jump="offers">Urus Offer Item</button>
             </div>
             <div id="admin-offers-list" class="admin-offers-list"></div>
           </div>
@@ -2423,6 +2428,21 @@
           </div>
 
           <div id="admin-customers-container" class="admin-customers-list"></div>
+        </section>
+
+        <!-- OFFER & PROMO TAB -->
+        <section class="admin-tab-content" id="admin-tab-offers" hidden>
+          <div class="admin-offer-stats" id="admin-offer-stats"></div>
+          <div class="admin-offer-toolbar">
+            <input type="search" id="admin-offer-search" class="admin-input-text" placeholder="Cari item untuk set offer...">
+            <div class="admin-offer-filter" role="group" aria-label="Tapis offer">
+              <button type="button" class="admin-offer-filter-btn active" data-offer-filter="all">Semua</button>
+              <button type="button" class="admin-offer-filter-btn" data-offer-filter="active">Aktif</button>
+              <button type="button" class="admin-offer-filter-btn" data-offer-filter="expired">Tamat</button>
+              <button type="button" class="admin-offer-filter-btn" data-offer-filter="none">Tiada Offer</button>
+            </div>
+          </div>
+          <div id="admin-offer-manager" class="admin-offer-manager"></div>
         </section>
 
         <!-- 7. SALES & TARGET MONITOR TAB -->
