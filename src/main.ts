@@ -3288,6 +3288,7 @@ function setupAdminPortal() {
     toggle.setAttribute('aria-expanded', 'true');
     const menu = picker.querySelector('.admin-picker-menu');
     if (menu) {
+      populateProductPickerMenu(picker);
       menu.hidden = false;
       menu.classList.remove('open-up', 'align-right');
       const scrollWrap = dialog.querySelector('.admin-main-scroll');
@@ -3478,16 +3479,12 @@ function setupAdminPortal() {
     `;
   }
 
-  function renderProductThumbPicker({ selId, allowEmpty, hiddenId, lookIdx, slot }) {
-    const selProd = selId
-      ? workingConfig.items.find(it => it.id === selId) || (!allowEmpty ? workingConfig.items[0] : null)
-      : (!allowEmpty ? workingConfig.items[0] : null);
-    const activeVal = selProd ? selProd.id : '';
-    const hiddenAttr = hiddenId
-      ? `id="${esc(hiddenId)}"`
-      : `data-look-prod="${slot}" data-idx="${lookIdx}"`;
-    const pickerCtx = hiddenId ? `data-new-slot="${slot}"` : `data-look-idx="${lookIdx}" data-slot="${slot}"`;
-
+  function populateProductPickerMenu(picker) {
+    const list = picker?.querySelector('.admin-picker-list');
+    const hiddenInp = picker?.querySelector('input[type="hidden"]');
+    if (!list || !hiddenInp || list.dataset.ready === 'true') return;
+    const activeVal = hiddenInp.value || '';
+    const allowEmpty = picker.dataset.allowEmpty === 'true';
     const emptyRow = allowEmpty ? `
       <button type="button" class="admin-picker-opt${!activeVal ? ' is-selected' : ''}" data-picker-choose="" data-search-text="tiada kosong">
         <span class="admin-picker-opt-img">—</span>
@@ -3498,38 +3495,35 @@ function setupAdminPortal() {
         ${!activeVal ? '<span class="admin-picker-opt-check" aria-hidden="true">✓</span>' : ''}
       </button>
     ` : '';
-
     const itemRows = workingConfig.items.map(it => {
       const catLabel = getCategoryDef(it.category).label;
       const isSel = it.id === activeVal;
       const st = Math.max(0, Number(it.stock ?? 0));
       const disc = clampDiscount(it.discount);
-      return `
-        <button type="button" class="admin-picker-opt${isSel ? ' is-selected' : ''}" data-picker-choose="${esc(it.id)}" data-search-text="${esc(`${it.name} ${catLabel} ${it.type}`.toLowerCase())}">
-          <span class="admin-picker-opt-img"><img src="${esc(it.image)}" alt="" loading="lazy"></span>
-          <span class="admin-picker-opt-info">
-            <span class="admin-picker-opt-name">${esc(it.name)}</span>
-            <span class="admin-picker-opt-sub">${esc(catLabel)} · ${money(getSalePrice(it))}${disc > 0 ? ` (-${disc}%)` : ''} · Stok ${st}</span>
-          </span>
-          ${isSel ? '<span class="admin-picker-opt-check" aria-hidden="true">✓</span>' : ''}
-        </button>
-      `;
+      return `<button type="button" class="admin-picker-opt${isSel ? ' is-selected' : ''}" data-picker-choose="${esc(it.id)}" data-search-text="${esc(`${it.name} ${catLabel} ${it.type}`.toLowerCase())}"><span class="admin-picker-opt-img"><img src="${esc(it.image)}" alt="" loading="lazy"></span><span class="admin-picker-opt-info"><span class="admin-picker-opt-name">${esc(it.name)}</span><span class="admin-picker-opt-sub">${esc(catLabel)} · ${money(getSalePrice(it))}${disc > 0 ? ` (-${disc}%)` : ''} · Stok ${st}</span></span>${isSel ? '<span class="admin-picker-opt-check" aria-hidden="true">✓</span>' : ''}</button>`;
     }).join('');
+    list.innerHTML = emptyRow + itemRows;
+    list.dataset.ready = 'true';
+  }
 
+  function renderProductThumbPicker({ selId, allowEmpty, hiddenId, lookIdx, slot }) {
+    const selProd = selId
+      ? workingConfig.items.find(it => it.id === selId) || (!allowEmpty ? workingConfig.items[0] : null)
+      : (!allowEmpty ? workingConfig.items[0] : null);
+    const activeVal = selProd ? selProd.id : '';
+    const hiddenAttr = hiddenId
+      ? `id="${esc(hiddenId)}"`
+      : `data-look-prod="${slot}" data-idx="${lookIdx}"`;
+    const pickerCtx = hiddenId ? `data-new-slot="${slot}"` : `data-look-idx="${lookIdx}" data-slot="${slot}"`;
     return `
-      <div class="admin-thumb-picker" data-prod-picker ${pickerCtx}>
+      <div class="admin-thumb-picker" data-prod-picker data-allow-empty="${allowEmpty ? 'true' : 'false'}" ${pickerCtx}>
         <input type="hidden" ${hiddenAttr} value="${esc(activeVal)}">
         <button type="button" class="admin-picker-trigger" data-picker-toggle aria-expanded="false">
           ${renderProductPickerTriggerContent(selProd)}
         </button>
         <div class="admin-picker-menu" hidden>
-          <div class="admin-picker-search-wrap">
-            <input type="search" class="admin-picker-search" data-picker-search placeholder="Cari nama atau kategori...">
-          </div>
-          <div class="admin-picker-list" role="listbox">
-            ${emptyRow}
-            ${itemRows}
-          </div>
+          <div class="admin-picker-search-wrap"><input type="search" class="admin-picker-search" data-picker-search placeholder="Cari nama atau kategori..."></div>
+          <div class="admin-picker-list" role="listbox"></div>
         </div>
       </div>
     `;
@@ -5801,6 +5795,7 @@ function setupAdminPortal() {
         pickerToggle.setAttribute('aria-expanded', 'true');
         const menu = picker.querySelector('.admin-picker-menu');
         if (menu) {
+          populateProductPickerMenu(picker);
           menu.hidden = false;
           menu.classList.remove('open-up', 'align-right');
           const scrollWrap = dialog.querySelector('.admin-main-scroll');
