@@ -6343,6 +6343,95 @@ function setupAdminPortal() {
     }
   });
 
+  const productCsvFields = ['id', 'name', 'type', 'category', 'price', 'discount', 'stock', 'sizes', 'image', 'url', 'isNew', 'offerEnabled', 'offerType', 'offerLabel', 'offerDiscount', 'offerEndsAt'];
+  const csvCell = value => {
+    const text = String(value ?? '');
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const parseCsv = text => {
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      const next = text[i + 1];
+      if (char === '"' && quoted && next === '"') { cell += '"'; i += 1; }
+      else if (char === '"') quoted = !quoted;
+      else if (char === ',' && !quoted) { row.push(cell); cell = ''; }
+      else if ((char === '\n' || char === '\r') && !quoted) {
+        if (char === '\r' && next === '\n') i += 1;
+        row.push(cell); cell = '';
+        if (row.some(value => value.trim())) rows.push(row);
+        row = [];
+      } else cell += char;
+    }
+    if (cell || row.length) { row.push(cell); if (row.some(value => value.trim())) rows.push(row); }
+    if (rows.length < 2) return [];
+    const headers = rows.shift().map(header => header.trim().replace(/^\uFEFF/, ''));
+    return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])));
+  };
+  const csvNumber = (value, fallback = 0) => {
+    const number = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(number) ? number : fallback;
+  };
+  const exportProductsCsv = () => {
+    const lines = [productCsvFields.join(',')];
+    workingConfig.items.forEach(item => {
+      lines.push(productCsvFields.map(field => csvCell(item[field] ?? '')).join(','));
+    });
+    const blob = new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sahira-stok-item-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify(`${workingConfig.items.length} item berjaya dimuat turun sebagai CSV.`);
+  };
+  const importProductsCsv = file => {
+    const reader = new FileReader();
+    reader.onload = event => {
+      const rows = parseCsv(String(event.target?.result || ''));
+      if (!rows.length || !rows.some(row => row.name?.trim())) {
+        notify('CSV tidak sah. Pastikan fail mempunyai lajur name dan sekurang-kurangnya satu item.', true);
+        return;
+      }
+      const existingById = new Map(workingConfig.items.map(item => [String(item.id), item]));
+      let updated = 0;
+      let added = 0;
+      rows.forEach(row => {
+        const name = String(row.name || '').trim();
+        if (!name) return;
+        const category = normalizeCategory(row.category || 'apparel');
+        const id = String(row.id || '').trim() || `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item'}-${Date.now().toString(36)}-${added}`;
+        const current = existingById.get(id);
+        const item = current || { id, name, type: 'Sahira Premium Outlet', category, price: 0, discount: 0, stock: 0, sizes: getCategoryDef(category).defaultSizes, image: '', url: '' };
+        item.name = name;
+        item.type = String(row.type || item.type || 'Sahira Premium Outlet').trim();
+        item.category = category;
+        item.price = Math.max(0, csvNumber(row.price, item.price));
+        item.discount = clampDiscount(csvNumber(row.discount, item.discount));
+        item.stock = Math.max(0, Math.round(csvNumber(row.stock, item.stock)));
+        item.sizes = normalizeSizes(row.sizes || item.sizes, category);
+        item.image = String(row.image ?? item.image ?? '').trim();
+        item.url = String(row.url ?? item.url ?? '').trim();
+        item.isNew = String(row.isNew ?? item.isNew ?? '').toLowerCase() === 'true';
+        item.offerEnabled = ['true', '1', 'yes'].includes(String(row.offerEnabled ?? item.offerEnabled ?? '').toLowerCase());
+        item.offerType = ['flash_sale', 'clearance', 'member'].includes(row.offerType) ? row.offerType : (item.offerType || 'flash_sale');
+        item.offerLabel = String(row.offerLabel ?? item.offerLabel ?? '').trim().slice(0, 24);
+        item.offerDiscount = clampDiscount(csvNumber(row.offerDiscount, item.offerDiscount));
+        const offerDate = String(row.offerEndsAt ?? item.offerEndsAt ?? '').trim();
+        item.offerEndsAt = offerDate && Number.isFinite(Date.parse(offerDate)) ? new Date(offerDate).toISOString() : null;
+        if (current) updated += 1;
+        else { workingConfig.items.push(item); existingById.set(id, item); added += 1; }
+      });
+      setDirty(true);
+      renderAdminProducts();
+      notify(`CSV berjaya diimport: ${updated} item dikemas kini, ${added} item baharu. Tekan Simpan & Terbit.`);
+    };
+    reader.onerror = () => notify('CSV tidak dapat dibaca.', true);
+    reader.readAsText(file);
+  };
+
   // Creator Drawers: Add New Outfit, New Product, New Video
   const newLookForm = document.getElementById('admin-new-look-form');
   const newProdForm = document.getElementById('admin-new-prod-form');
@@ -6352,6 +6441,12 @@ function setupAdminPortal() {
   document.getElementById('admin-new-look-cancel')?.addEventListener('click', () => { newLookForm.hidden = true; });
   document.getElementById('admin-add-prod-toggle')?.addEventListener('click', () => { newProdForm.hidden = !newProdForm.hidden; if (!newProdForm.hidden) { renderNewProdSizeChips(); renderNewProdBrandChips(); } });
   document.getElementById('admin-new-prod-cancel')?.addEventListener('click', () => { newProdForm.hidden = true; });
+  document.getElementById('admin-prod-export-csv')?.addEventListener('click', exportProductsCsv);
+  document.getElementById('admin-prod-import-csv')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (file) importProductsCsv(file);
+    event.target.value = '';
+  });
   document.getElementById('admin-add-video-toggle')?.addEventListener('click', () => { newVideoForm.hidden = !newVideoForm.hidden; populateNewVideoLookSelect(); });
   document.getElementById('admin-new-video-cancel')?.addEventListener('click', () => { newVideoForm.hidden = true; });
 
